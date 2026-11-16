@@ -17,6 +17,7 @@ Thumbs.db
 backend/bin/
 backend/vendor/
 backend/tmp/
+backend/uploads/
 *.exe
 *.test
 *.out

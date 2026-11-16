@@ -10,6 +10,7 @@ import (
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/database"
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/model"
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/pkg/jwt"
+	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/pkg/storage"
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/router"
 )
 
@@ -22,16 +23,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := db.AutoMigrate(&model.User{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Post{}, &model.PostImage{}, &model.Like{}); err != nil {
 		slog.Error("failed to migrate", "error", err)
 		os.Exit(1)
 	}
 
 	rdb := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 
+	st, err := storage.New(cfg.UploadDir, cfg.PublicBaseURL)
+	if err != nil {
+		slog.Error("failed to init storage", "error", err)
+		os.Exit(1)
+	}
+
 	jwtMgr := jwt.NewManager(cfg.JWTSecret)
 
-	r := router.New(db, rdb, jwtMgr, cfg.AppEnv)
+	r := router.New(db, rdb, jwtMgr, st, cfg.AppEnv)
+	r.Static("/uploads", cfg.UploadDir)
 
 	slog.Info("server starting", "port", cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {

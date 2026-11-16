@@ -1,0 +1,108 @@
+package repository
+
+import (
+	"errors"
+
+	"gorm.io/gorm"
+
+	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/model"
+)
+
+type PostRepo struct {
+	db *gorm.DB
+}
+
+func NewPostRepo(db *gorm.DB) *PostRepo {
+	return &PostRepo{db: db}
+}
+
+func (r *PostRepo) Create(post *model.Post) error {
+	return r.db.Create(post).Error
+}
+
+func (r *PostRepo) FindByID(id uint) (*model.Post, error) {
+	var post model.Post
+	err := r.db.Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
+		return db.Order("sort_order ASC")
+	}).First(&post, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &post, nil
+}
+
+type ListParams struct {
+	Sort     string
+	Page     int
+	PageSize int
+}
+
+func (r *PostRepo) List(params ListParams) ([]model.Post, error) {
+	var posts []model.Post
+	q := r.db.Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
+		return db.Order("sort_order ASC")
+	})
+
+	switch params.Sort {
+	case "hot":
+		q = q.Order("like_count DESC").Order("id DESC")
+	default:
+		q = q.Order("id DESC")
+	}
+
+	offset := (params.Page - 1) * params.PageSize
+	err := q.Limit(params.PageSize).Offset(offset).Find(&posts).Error
+	return posts, err
+}
+
+func (r *PostRepo) Like(userID, postID uint) (bool, error) {
+	var count int64
+	if err := r.db.Model(&model.Like{}).Where("user_id = ? AND post_id = ?", userID, postID).Count(&count).Error; err != nil {
+		return false, err
+	}
+	if count > 0 {
+		return false, nil
+	}
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&model.Like{UserID: userID, PostID: postID}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.Post{}).Where("id = ?", postID).UpdateColumn("like_count", gorm.Expr("like_count + 1")).Error
+	})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *PostRepo) Unlike(userID, postID uint) (bool, error) {
+	res := r.db.Where("user_id = ? AND post_id = ?", userID, postID).Delete(&model.Like{})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return false, nil
+	}
+	if err := r.db.Model(&model.Post{}).Where("id = ?", postID).UpdateColumn("like_count", gorm.Expr("GREATEST(like_count - 1, 0)")).Error; err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *PostRepo) LikedPostIDs(userID uint, postIDs []uint) (map[uint]bool, error) {
+	set := make(map[uint]bool)
+	if len(postIDs) == 0 {
+		return set, nil
+	}
+	var likes []model.Like
+	if err := r.db.Where("user_id = ? AND post_id IN ?", userID, postIDs).Find(&likes).Error; err != nil {
+		return nil, err
+	}
+	for _, l := range likes {
+		set[l.PostID] = true
+	}
+	return set, nil
+}

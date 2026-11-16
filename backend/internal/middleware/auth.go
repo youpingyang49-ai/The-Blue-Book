@@ -30,3 +30,22 @@ func Auth(jwtMgr *jwt.Manager) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func OptionalAuth(jwtMgr *jwt.Manager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			c.Next()
+			return
+		}
+		if claims, err := jwtMgr.Parse(parts[1]); err == nil {
+			c.Set("userID", claims.UserID)
+		}
+		c.Next()
+	}
+}
