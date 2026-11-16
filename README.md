@@ -4,6 +4,21 @@
 
 ---
 
+## 当前进度
+
+### 已实现
+- ✅ 登录：手机号 + 验证码（JWT 双 token）、/users/me
+- ✅ 帖子：图片上传、发帖、feed（最新/热门 + 分页）、帖子详情、点赞/取消点赞
+- ✅ 前端：登录页、首页瀑布流、发帖页、帖子详情、搜索/tab（搜索页为占位）
+- ✅ 本地环境：docker-compose（MySQL + Redis）
+
+### 待实现
+- 搜索、个人中心（我的帖子/点赞/收藏）、收藏、评论、关注流
+- 对象存储：开发用本地磁盘，计划接 MinIO/OSS
+- 帖子编辑/删除、内容审核
+
+---
+
 ## 1. 项目定位
 
 - **定位**：轻量级图文社区（笔记分享），不做视频 / 直播 / 私信等重功能。
@@ -22,11 +37,11 @@
 | 数据访问 | GORM（备选 sqlc） | GORM 上手快；追求类型安全用 sqlc |
 | 数据库 | MySQL 8.0 | 主流、生态好；中文全文检索用 ngram 解析器 |
 | 缓存 | Redis | 热点 feed 缓存、验证码、限流 |
-| 对象存储 | 阿里 OSS / 腾讯 COS / Cloudflare R2 | 本地开发用 MinIO |
+| 对象存储 | 阿里 OSS / 腾讯 COS / Cloudflare R2 | 开发用本地磁盘（backend/uploads），计划接 MinIO/OSS |
 | 鉴权 | JWT（golang-jwt）+ Refresh Token | Access / Refresh 双 token |
-| 配置 | Viper | 多环境配置 |
-| 日志 | zap | 结构化日志 |
-| 迁移 | golang-migrate | 数据库版本管理 |
+| 配置 | 环境变量（os.Getenv） | 简单直接；后续可换 Viper |
+| 日志 | log/slog | Go 标准库结构化日志 |
+| 迁移 | GORM AutoMigrate | 自动建表；后续可换 golang-migrate |
 | 参数校验 | go-playground/validator | 请求参数校验 |
 | 搜索 | MySQL FULLTEXT + ngram | 中文分词用 ngram 解析器；数据量大后尽早切 Meilisearch |
 
@@ -159,7 +174,7 @@
 
 ## 6. 目录结构建议
 
-    xiaohongshu-lite/
+    The-Blue-Book/
     ├── README.md
     ├── backend/                    # Go 后端
     │   ├── cmd/server/main.go      # 入口
@@ -182,20 +197,20 @@
     │   │   ├── store/              # 状态管理
     │   │   └── utils/
     │   └── package.json
-    └── docker-compose.yml          # 本地环境（MySQL + Redis + MinIO）
+    └── docker-compose.yml          # 本地环境（MySQL + Redis）
 
 ---
 
 ## 7. MVP 范围与里程碑
 
-### 第一期（跑通核心闭环）
+### 第一期（核心闭环 · 完成情况）
 - ✅ 手机号验证码登录
 - ✅ 发布图文（多图上传）
 - ✅ 首页 feed（最新 / 热门排序）
 - ✅ 帖子详情
-- ✅ 点赞 / 收藏
-- ✅ 个人中心（资料 + 我的帖子）
-- ✅ 基础搜索
+- ✅ 点赞 · ⬜ 收藏
+- ⬜ 个人中心（资料 + 我的帖子）
+- ⬜ 基础搜索
 
 ### 第二期
 - 关注流 / 关注作者
@@ -239,4 +254,4 @@
     cd frontend && npm install && npm run dev   # /api 已代理到后端 8080
 
 ### 配置
-环境变量见 backend/.env.example（PORT / DATABASE_URL / REDIS_ADDR）。
+环境变量见 backend/.env.example（PORT / DATABASE_URL / REDIS_ADDR / JWT_SECRET / APP_ENV / UPLOAD_DIR / PUBLIC_BASE_URL）。
