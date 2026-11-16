@@ -221,6 +221,22 @@
 
 ---
 
-## 9. 快速开始（规划中）
+## 9. 快速开始
 
-> 后端 Go 项目骨架与 docker-compose 本地环境将在此基础上初始化，后续补充具体步骤。
+### 环境要求
+- Go 1.27+ · Node.js 20+ · Docker + Docker Compose
+
+### 启动步骤
+
+    # 1. 本地依赖（MySQL + Redis）
+    docker compose up -d
+
+    # 2. 后端
+    cd backend && go run ./cmd/server
+    curl http://127.0.0.1:8080/api/v1/health   # => {"db":"connected","status":"ok"}
+
+    # 3. 前端
+    cd frontend && npm install && npm run dev   # /api 已代理到后端 8080
+
+### 配置
+环境变量见 backend/.env.example（PORT / DATABASE_URL / REDIS_ADDR）。
