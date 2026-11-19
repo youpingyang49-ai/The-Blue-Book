@@ -53,6 +53,7 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 		{
 			auth.POST("/send-code", authHandler.SendCode)
 			auth.POST("/login", authHandler.Login)
+			auth.POST("/refresh", authHandler.Refresh)
 		}
 
 		api.GET("/posts", middleware.OptionalAuth(jwtMgr), postHandler.List)

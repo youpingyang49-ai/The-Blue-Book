@@ -16,9 +16,10 @@ import (
 )
 
 var (
-	ErrCodeExpired = errors.New("验证码已过期")
-	ErrCodeInvalid = errors.New("验证码错误")
-	ErrRateLimited = errors.New("发送太频繁，请稍后再试")
+	ErrCodeExpired    = errors.New("验证码已过期")
+	ErrCodeInvalid    = errors.New("验证码错误")
+	ErrRateLimited    = errors.New("发送太频繁，请稍后再试")
+	ErrSessionExpired = errors.New("登录状态已失效")
 )
 
 const (
@@ -85,6 +86,30 @@ func (s *AuthService) Login(ctx context.Context, phone, code string) (string, st
 		}
 	}
 
+	access, err := s.jwtMgr.GenerateAccessToken(user.ID, user.Phone)
+	if err != nil {
+		return "", "", nil, err
+	}
+	refresh, err := s.jwtMgr.GenerateRefreshToken(user.ID)
+	if err != nil {
+		return "", "", nil, err
+	}
+	return access, refresh, user, nil
+}
+
+// Refresh 用 refresh token 换取新的 access / refresh token（刷新令牌轮换）。
+func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (string, string, *model.User, error) {
+	claims, err := s.jwtMgr.ParseRefresh(refreshToken)
+	if err != nil {
+		return "", "", nil, ErrSessionExpired
+	}
+	user, err := s.userRepo.FindByID(claims.UserID)
+	if err != nil {
+		return "", "", nil, err
+	}
+	if user == nil {
+		return "", "", nil, ErrSessionExpired
+	}
 	access, err := s.jwtMgr.GenerateAccessToken(user.ID, user.Phone)
 	if err != nil {
 		return "", "", nil, err

@@ -21,7 +21,7 @@ func Auth(jwtMgr *jwt.Manager) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token 格式错误"})
 			return
 		}
-		claims, err := jwtMgr.Parse(parts[1])
+		claims, err := jwtMgr.ParseAccess(parts[1])
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token 无效或已过期"})
 			return
@@ -43,7 +43,7 @@ func OptionalAuth(jwtMgr *jwt.Manager) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		if claims, err := jwtMgr.Parse(parts[1]); err == nil {
+		if claims, err := jwtMgr.ParseAccess(parts[1]); err == nil {
 			c.Set("userID", claims.UserID)
 		}
 		c.Next()

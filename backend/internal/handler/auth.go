@@ -80,6 +80,34 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+type refreshReq struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// Refresh 使用 refresh token 静默续期。
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	var req refreshReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少 refresh_token"})
+		return
+	}
+	access, refresh, user, err := h.auth.Refresh(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		if err == service.ErrSessionExpired {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "登录已过期，请重新登录"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "刷新失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  access,
+		"refresh_token": refresh,
+		"token_type":    "Bearer",
+		"user":          user,
+	})
+}
+
 func validPhone(phone string) bool {
 	if len(phone) != 11 {
 		return false

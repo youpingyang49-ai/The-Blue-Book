@@ -9,6 +9,11 @@ import (
 
 var ErrInvalidToken = errors.New("invalid token")
 
+const (
+	TokenTypeAccess  = "access"
+	TokenTypeRefresh = "refresh"
+)
+
 type Manager struct {
 	secret     []byte
 	accessTTL  time.Duration
@@ -25,7 +30,8 @@ func NewManager(secret string) *Manager {
 
 type Claims struct {
 	UserID uint   `json:"user_id"`
-	Phone  string `json:"phone"`
+	Phone  string `json:"phone,omitempty"`
+	Type   string `json:"typ,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -33,6 +39,7 @@ func (m *Manager) GenerateAccessToken(userID uint, phone string) (string, error)
 	claims := Claims{
 		UserID: userID,
 		Phone:  phone,
+		Type:   TokenTypeAccess,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(m.accessTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -44,6 +51,7 @@ func (m *Manager) GenerateAccessToken(userID uint, phone string) (string, error)
 func (m *Manager) GenerateRefreshToken(userID uint) (string, error) {
 	claims := Claims{
 		UserID: userID,
+		Type:   TokenTypeRefresh,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(m.refreshTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -61,6 +69,30 @@ func (m *Manager) Parse(tokenStr string) (*Claims, error) {
 	}
 	claims, ok := token.Claims.(*Claims)
 	if !ok {
+		return nil, ErrInvalidToken
+	}
+	return claims, nil
+}
+
+// ParseAccess 校验 access token（拒绝 refresh token 冒充）。
+func (m *Manager) ParseAccess(tokenStr string) (*Claims, error) {
+	claims, err := m.Parse(tokenStr)
+	if err != nil {
+		return nil, err
+	}
+	if claims.Type != TokenTypeAccess {
+		return nil, ErrInvalidToken
+	}
+	return claims, nil
+}
+
+// ParseRefresh 校验 refresh token（拒绝 access token 冒充）。
+func (m *Manager) ParseRefresh(tokenStr string) (*Claims, error) {
+	claims, err := m.Parse(tokenStr)
+	if err != nil {
+		return nil, err
+	}
+	if claims.Type != TokenTypeRefresh {
 		return nil, ErrInvalidToken
 	}
 	return claims, nil
