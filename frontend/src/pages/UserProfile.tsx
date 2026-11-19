@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { useAuth } from "../store/auth";
 import AppShell from "../components/AppShell";
 import Avatar from "../components/Avatar";
+import Icon from "../components/Icon";
 import MasonryFeed from "../components/MasonryFeed";
 import type { PostItem } from "../components/PostCard";
 import { EmptyState, ErrorState, FeedSkeleton, PageLoading } from "../components/States";
@@ -71,6 +72,14 @@ export default function UserProfile() {
     }
   };
 
+  const openChat = () => {
+    if (!token) {
+      toast("登录后即可私信", "error");
+      navigate(`/login?redirect=/user/${userId}`);
+      return;
+    }
+    navigate(`/chat/${userId}`);
+  };
   if (error) {
     return (
       <AppShell>
@@ -113,13 +122,19 @@ export default function UserProfile() {
               管理我的主页
             </button>
           ) : (
-            <button
-              type="button"
-              className={following ? "btn btn-ghost btn-sm" : "btn btn-primary btn-sm"}
-              onClick={toggleFollow}
-            >
-              {following ? "已关注" : "+ 关注"}
-            </button>
+            <>
+              <button
+                type="button"
+                className={following ? "btn btn-ghost btn-sm" : "btn btn-primary btn-sm"}
+                onClick={toggleFollow}
+              >
+                {following ? "已关注" : "+ 关注"}
+              </button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={openChat}>
+                <Icon name="chat" size={15} />
+                私信
+              </button>
+            </>
           )}
         </div>
       </section>
