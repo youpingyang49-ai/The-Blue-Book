@@ -31,10 +31,6 @@ export default function EditPost() {
   }, [id, toast]);
 
   const save = async () => {
-    if (!title.trim()) {
-      toast("标题不能为空", "error");
-      return;
-    }
     setSaving(true);
     try {
       await api.updatePost(Number(id), { title: title.trim(), content: content.trim() });

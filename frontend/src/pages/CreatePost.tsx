@@ -26,17 +26,24 @@ export default function CreatePost() {
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
-  const addTopic = (raw: string) => {
-    const name = raw.replace(/^#/, "").trim();
-    if (!name) return;
-    setTopics((prev) => (prev.includes(name) || prev.length >= 5 ? prev : [...prev, name]));
+  const splitTopics = (text: string) =>
+    text
+      .split(/[,，\s#]+/)
+      .map((name) => name.trim())
+      .filter(Boolean);
+
+  const mergeTopics = (base: string[], extra: string[]) => {
+    const merged = [...base];
+    extra.forEach((name) => {
+      if (name && !merged.includes(name) && merged.length < 5) merged.push(name);
+    });
+    return merged;
   };
 
   const commitTopics = () => {
-    topicsText
-      .split(/[,，\s]+/)
-      .filter(Boolean)
-      .forEach(addTopic);
+    const pending = splitTopics(topicsText);
+    if (pending.length === 0) return;
+    setTopics((prev) => mergeTopics(prev, pending));
     setTopicsText("");
   };
 
@@ -71,26 +78,25 @@ export default function CreatePost() {
       navigate("/login?redirect=/create");
       return;
     }
-    if (!title.trim()) {
-      toast("给笔记起一个标题吧", "error");
-      return;
-    }
-    if (!content.trim()) {
-      toast("写点正文内容再发布", "error");
-      return;
-    }
     if (images.length === 0) {
       toast("至少上传一张图片", "error");
       return;
     }
-    if (topicsText.trim()) commitTopics();
+    if (uploading) {
+      toast("图片还在上传中，请稍候", "error");
+      return;
+    }
+    // 同步合并「已确认的话题」和「输入框里尚未回车的话题」，避免状态不同步导致话题丢失
+    const finalTopics = mergeTopics(topics, splitTopics(topicsText));
+    setTopics(finalTopics);
+    setTopicsText("");
     setPublishing(true);
     try {
       const result = await api.createPost({
         title: title.trim(),
         content: content.trim(),
         image_keys: images.map((image) => image.key),
-        topics,
+        topics: finalTopics,
       });
       toast("发布成功");
       navigate(result?.post_id ? `/post/${result.post_id}` : "/");
@@ -166,24 +172,20 @@ export default function CreatePost() {
 
           <div className="editor-form">
             <div className="field">
-              <label className="field-label" htmlFor="post-title">
-                标题
-              </label>
+              <label className="field-label" htmlFor="post-title">标题<span className="field-optional">选填</span></label>
               <input
                 id="post-title"
                 className="input"
                 value={title}
                 maxLength={60}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="给这篇笔记起个标题"
+                placeholder="不填也可以，直接发布图片"
               />
               <span className="field-hint">{title.length}/60</span>
             </div>
 
             <div className="field">
-              <label className="field-label" htmlFor="post-content">
-                正文
-              </label>
+              <label className="field-label" htmlFor="post-content">正文<span className="field-optional">选填</span></label>
               <textarea
                 id="post-content"
                 className="textarea"
@@ -194,9 +196,7 @@ export default function CreatePost() {
             </div>
 
             <div className="field">
-              <label className="field-label" htmlFor="post-topics">
-                话题
-              </label>
+              <label className="field-label" htmlFor="post-topics">话题<span className="field-optional">选填</span></label>
               <input
                 id="post-topics"
                 className="input"
@@ -209,7 +209,7 @@ export default function CreatePost() {
                     commitTopics();
                   }
                 }}
-                placeholder="输入话题后回车添加，最多 5 个，例如：美食 探店"
+                placeholder="不填也可以，输入后回车添加，最多 5 个"
               />
               {topics.length > 0 ? (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
@@ -230,6 +230,7 @@ export default function CreatePost() {
               ) : null}
             </div>
 
+            <p className="field-hint">标题、正文、话题都可以不填，至少上传一张图片即可发布。</p>
             <div className="editor-actions">
               <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>
                 取消

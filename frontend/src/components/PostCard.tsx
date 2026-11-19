@@ -69,6 +69,8 @@ export default function PostCard({ post, onMediaLoad }: PostCardProps) {
   };
 
   const topics = (post.topics || []).filter(Boolean).slice(0, 2);
+  const titleText = (post.title || "").trim();
+  const displayTitle = titleText || (post.content || "").trim() || "无标题";
 
   return (
     <article className="post-card" onClick={open}>
@@ -91,7 +93,7 @@ export default function PostCard({ post, onMediaLoad }: PostCardProps) {
         />
       </div>
       <div className="post-body">
-        <h3 className="post-title clamp-2">{post.title}</h3>
+        <h3 className={`post-title clamp-2 ${titleText ? "" : "post-title-empty"}`.trim()}>{displayTitle}</h3>
         {topics.length > 0 && (
           <div className="post-tags">
             {topics.map((topic) => (

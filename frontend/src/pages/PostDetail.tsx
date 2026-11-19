@@ -266,7 +266,7 @@ export default function PostDetail() {
               </button>
             </div>
 
-            <h1 className="detail-title">{post.title}</h1>
+            {post.title?.trim() ? <h1 className="detail-title">{post.title}</h1> : null}
 
             {post.topics?.length ? (
               <div className="detail-topics">
