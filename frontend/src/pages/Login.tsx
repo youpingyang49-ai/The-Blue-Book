@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../store/auth";
-import Icon from "../components/Icon";
+import Avatar from "../components/Avatar";
+import type { PostItem } from "../components/PostCard";
 
 const PHONE_RE = /^1[3-9]\d{9}$/;
 
@@ -20,11 +21,29 @@ export default function Login() {
   const [sending, setSending] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ text: string; kind: "ok" | "error" } | null>(null);
+  const [previews, setPreviews] = useState<PostItem[]>([]);
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
+    };
+  }, []);
+
+  // 左侧展示社区真实热门笔记
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const result = await api.feed("hot", 1);
+        if (!alive) return;
+        setPreviews((result.items || []).slice(0, 3));
+      } catch {
+        if (alive) setPreviews([]);
+      }
+    })();
+    return () => {
+      alive = false;
     };
   }, []);
 
@@ -107,50 +126,45 @@ export default function Login() {
 
           <div className="login-slogan">
             <h1>
-              记录灵感
+              把生活里
               <br />
-              分享<em>生活</em>
+              <em>值得记住的瞬间</em>
+              <br />
+              都留在这里
             </h1>
-            <p>让每一次发现，都成为值得分享的内容。在这里收藏你的日常，也遇见别人的世界。</p>
+            <p>记录一顿饭、一次远行、一段心情。在 The Blue Book，遇见和你一样认真生活的人。</p>
           </div>
 
-          <div className="login-features">
-            <div className="login-feature">
-              <span className="dot">
-                <Icon name="grid" size={14} />
-              </span>
-              瀑布流发现，一眼看到喜欢的内容
-            </div>
-            <div className="login-feature">
-              <span className="dot">
-                <Icon name="edit" size={14} />
-              </span>
-              图文笔记，记录真实的生活质感
-            </div>
-            <div className="login-feature">
-              <span className="dot">
-                <Icon name="chat" size={14} />
-              </span>
-              关注、评论、私信，和有趣的人连接
-            </div>
+          <div className="login-showcase">
+            {previews.length > 0
+              ? previews.map((post) => (
+                  <figure key={post.id}>
+                    <img src={post.cover_image_url} alt={post.title} loading="lazy" />
+                    <figcaption>
+                      <div className="showcase-title">{post.title}</div>
+                      <div className="showcase-author">@{post.author?.nickname}</div>
+                    </figcaption>
+                  </figure>
+                ))
+              : Array.from({ length: 3 }).map((_, index) => (
+                  <figure key={index} aria-hidden="true">
+                    <div style={{ width: "100%", height: "100%", background: "rgba(255,255,255,.14)" }} />
+                  </figure>
+                ))}
           </div>
 
-          <div className="login-cards" aria-hidden="true">
-            <div className="login-mini-card">
-              <div className="login-mini-cover" />
-              <div className="login-mini-line" />
-              <div className="login-mini-line short" />
+          <div className="login-creators">
+            <div className="avatar-stack">
+              {previews.slice(0, 3).map((post) => (
+                <Avatar
+                  key={post.id}
+                  src={post.author?.avatar_url}
+                  name={post.author?.nickname}
+                  size="xs"
+                />
+              ))}
             </div>
-            <div className="login-mini-card">
-              <div className="login-mini-cover" />
-              <div className="login-mini-line" />
-              <div className="login-mini-line short" />
-            </div>
-            <div className="login-mini-card">
-              <div className="login-mini-cover" />
-              <div className="login-mini-line" />
-              <div className="login-mini-line short" />
-            </div>
+            <span>今日社区精选 · 来自真实创作者</span>
           </div>
         </div>
 

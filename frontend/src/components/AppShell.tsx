@@ -3,14 +3,13 @@ import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../store/auth";
-import Avatar from "./Avatar";
 import HeaderSearch from "./HeaderSearch";
 import Icon from "./Icon";
 import type { IconName } from "./Icon";
 import Sidebar from "./Sidebar";
 
 export default function AppShell({ children }: { children: ReactNode }) {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [unread, setUnread] = useState(0);
@@ -66,29 +65,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
               B
             </span>
             <HeaderSearch />
-            <div className="header-actions">
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => navigate(token ? "/notifications" : "/login")}
-                aria-label="消息通知"
-              >
-                <Icon name="bell" size={21} />
-                {unread > 0 ? <span className="dot" /> : null}
-              </button>
-              <button
-                type="button"
-                className="icon-btn header-user"
-                onClick={() => navigate(token ? "/profile" : "/login")}
-                aria-label="个人中心"
-              >
-                {token && user ? (
-                  <Avatar src={user.avatar_url} name={user.nickname} size="sm" />
-                ) : (
-                  <Icon name="user" size={21} />
-                )}
-              </button>
-            </div>
           </div>
         </header>
 

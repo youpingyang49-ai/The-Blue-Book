@@ -15,7 +15,6 @@ interface NavEntry {
   icon: IconName;
   exact?: boolean;
   badge?: number;
-  tab?: string;
 }
 
 export default function Sidebar({ unread, onAbout }: SidebarProps) {
@@ -23,21 +22,15 @@ export default function Sidebar({ unread, onAbout }: SidebarProps) {
   const navigate = useNavigate();
   const { user, token, logout } = useAuth();
 
-  const params = new URLSearchParams(location.search);
-  const dmActive = location.pathname === "/notifications" && params.get("tab") === "dm";
-
   const entries: NavEntry[] = [
     { to: "/", label: "首页", icon: "home", exact: true },
     { to: "/search", label: "发现", icon: "compass" },
     { to: "/notifications", label: "消息", icon: "bell", badge: unread },
-    { to: "/notifications?tab=dm", label: "私信", icon: "chat", tab: "dm" },
     { to: "/profile", label: "我的", icon: "user" },
   ];
 
   const isActive = (entry: NavEntry) => {
-    if (entry.tab === "dm") return dmActive;
     if (entry.exact) return location.pathname === entry.to;
-    if (entry.to === "/notifications") return location.pathname === "/notifications" && !dmActive;
     return location.pathname.startsWith(entry.to);
   };
 

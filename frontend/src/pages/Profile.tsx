@@ -6,6 +6,7 @@ import AppShell from "../components/AppShell";
 import Avatar from "../components/Avatar";
 import MasonryFeed from "../components/MasonryFeed";
 import type { PostItem } from "../components/PostCard";
+import FollowListModal from "../components/FollowListModal";
 import { EmptyState, ErrorState, FeedSkeleton } from "../components/States";
 import { useToast } from "../components/Toast";
 
@@ -29,23 +30,25 @@ export default function Profile() {
   const [items, setItems] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [listTab, setListTab] = useState<null | "following" | "followers">(null);
+
+  const refreshProfile = useCallback(async () => {
+    if (!token) return;
+    try {
+      const me = await api.me();
+      const fresh = me.user;
+      if (!fresh) return;
+      setAuth(token, fresh);
+      const detail = await api.getUser(fresh.id);
+      setProfile(detail.user);
+    } catch {
+      /* 保留本地缓存的用户信息 */
+    }
+  }, [token, setAuth]);
 
   useEffect(() => {
-    if (!token) return;
-    (async () => {
-      try {
-        const me = await api.me();
-        const fresh = me.user;
-        if (fresh) {
-          setAuth(token, fresh);
-          const detail = await api.getUser(fresh.id);
-          setProfile(detail.user);
-        }
-      } catch {
-        /* 保留本地缓存的用户信息 */
-      }
-    })();
-  }, [token, setAuth]);
+    refreshProfile();
+  }, [refreshProfile]);
 
   const load = useCallback(
     async (key: string) => {
@@ -104,12 +107,12 @@ export default function Profile() {
             </h1>
             <p className="profile-bio">{bio}</p>
             <div className="profile-stats">
-              <span className="profile-stat">
+              <button type="button" className="profile-stat" onClick={() => setListTab("following")}>
                 <b>{profile?.following_count ?? 0}</b> 关注
-              </span>
-              <span className="profile-stat">
+              </button>
+              <button type="button" className="profile-stat" onClick={() => setListTab("followers")}>
                 <b>{profile?.follower_count ?? 0}</b> 粉丝
-              </span>
+              </button>
               <span className="profile-stat muted">{maskPhone(user?.phone)}</span>
             </div>
           </div>
@@ -171,6 +174,15 @@ export default function Profile() {
       ) : (
         <MasonryFeed items={items} />
       )}
+
+      {listTab && user ? (
+        <FollowListModal
+          userId={user.id}
+          initialTab={listTab}
+          onClose={() => setListTab(null)}
+          onChanged={refreshProfile}
+        />
+      ) : null}
     </AppShell>
   );
 }

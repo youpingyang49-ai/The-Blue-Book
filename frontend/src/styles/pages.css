@@ -100,72 +100,88 @@
   max-width: 300px;
 }
 
-.login-features {
-  margin-top: 34px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* 真实内容预览：三张社区热门笔记 */
+.login-showcase {
+  margin-top: auto;
+  padding-top: 34px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
   position: relative;
   z-index: 1;
 }
-.login-feature {
+.login-showcase figure {
+  position: relative;
+  margin: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  aspect-ratio: 3 / 4;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(9, 25, 66, 0.18);
+  transition: transform 0.45s var(--ease);
+}
+.login-showcase figure:nth-child(2) {
+  transform: translateY(12px);
+}
+.login-showcase figure:nth-child(3) {
+  transform: translateY(4px);
+}
+.login-brand:hover .login-showcase figure {
+  transform: translateY(-3px);
+}
+.login-showcase figure:nth-child(2):hover {
+  transform: translateY(9px);
+}
+.login-showcase img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.login-showcase figcaption {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 22px 9px 9px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(6, 18, 44, 0.72));
+}
+.login-showcase .showcase-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.login-showcase .showcase-author {
+  margin-top: 3px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.login-creators {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13.5px;
-  color: rgba(255, 255, 255, 0.9);
-}
-.login-feature .dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.14);
-  display: grid;
-  place-items: center;
-  flex: none;
-}
-
-.login-cards {
-  margin-top: auto;
-  padding-top: 40px;
-  display: flex;
-  gap: 10px;
+  margin-top: 22px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.76);
   position: relative;
   z-index: 1;
 }
-.login-mini-card {
-  flex: 1;
-  border-radius: 12px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(4px);
-  padding: 8px;
-  transform: translateY(0);
-  transition: transform 0.4s var(--ease);
+.avatar-stack {
+  display: flex;
+  align-items: center;
 }
-.login-brand:hover .login-mini-card {
-  transform: translateY(-4px);
+.avatar-stack > * {
+  margin-left: -9px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-sizing: content-box;
 }
-.login-mini-card:nth-child(2) {
-  margin-top: 14px;
-}
-.login-mini-card:nth-child(3) {
-  margin-top: 4px;
-}
-.login-mini-cover {
-  height: 54px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.14));
-}
-.login-mini-line {
-  height: 5px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.34);
-  margin-top: 6px;
-}
-.login-mini-line.short {
-  width: 62%;
+.avatar-stack > *:first-child {
+  margin-left: 0;
 }
 
 /* right form panel */
@@ -235,8 +251,8 @@
     gap: 14px;
   }
   .login-slogan,
-  .login-features,
-  .login-cards {
+  .login-showcase,
+  .login-creators {
     display: none;
   }
   .login-brand::before,
@@ -312,6 +328,18 @@
   margin-top: 4px;
   font-size: 13.5px;
   color: var(--text-3);
+}
+
+.discover-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 2px 0 14px;
+}
+.discover-head h2 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 /* ------------------------------------------------------------------ detail */
@@ -607,6 +635,14 @@
   font-size: 16px;
   font-weight: 700;
   color: var(--text-1);
+}
+button.profile-stat {
+  padding: 0;
+  transition: color var(--dur) var(--ease);
+}
+button.profile-stat:hover,
+button.profile-stat:hover b {
+  color: var(--brand-600);
 }
 .profile-actions {
   display: flex;
