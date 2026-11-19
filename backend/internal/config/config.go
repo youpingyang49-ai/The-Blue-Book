@@ -10,6 +10,7 @@ type Config struct {
 	AppEnv        string
 	UploadDir     string
 	PublicBaseURL string
+	RabbitMQURL   string
 	MinIO         MinIOConfig
 }
 
@@ -30,6 +31,7 @@ func Load() *Config {
 		AppEnv:        getEnv("APP_ENV", "development"),
 		UploadDir:     getEnv("UPLOAD_DIR", "./uploads"),
 		PublicBaseURL: getEnv("PUBLIC_BASE_URL", "http://127.0.0.1:8080"),
+		RabbitMQURL:   getEnv("RABBITMQ_URL", "amqp://guest:guest@127.0.0.1:5672/"),
 		MinIO: MinIOConfig{
 			Endpoint:  getEnv("MINIO_ENDPOINT", ""),
 			AccessKey: getEnv("MINIO_ACCESS_KEY", "minioadmin"),

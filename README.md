@@ -31,6 +31,7 @@
 | ORM | GORM |
 | 数据库 | MySQL 8.0 |
 | 缓存 | Redis 7 |
+| 消息队列 | RabbitMQ |
 | 鉴权 | JWT（golang-jwt/v5） |
 | 对象存储 | 本地磁盘 / MinIO 可切换 |
 
@@ -53,7 +54,7 @@
 
 ### 启动
 
-    # 1. 启动本地依赖（MySQL + Redis）
+    # 1. 启动本地依赖（MySQL + Redis + RabbitMQ）
     docker compose up -d
 
     # 2. 启动后端（端口 8080）
@@ -89,7 +90,7 @@
     │       ├── store/           # 状态管理
     │       ├── components/      # 组件
     │       └── pages/           # 页面
-    └── docker-compose.yml       # 本地依赖（MySQL + Redis）
+    └── docker-compose.yml       # 本地依赖（MySQL + Redis + RabbitMQ）
 
 ## 📡 API 概览
 

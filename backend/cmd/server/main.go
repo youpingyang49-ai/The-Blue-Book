@@ -10,8 +10,11 @@ import (
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/database"
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/model"
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/pkg/jwt"
+	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/pkg/mq"
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/pkg/storage"
+	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/repository"
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/router"
+	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/service"
 )
 
 func main() {
@@ -43,12 +46,45 @@ func main() {
 
 	jwtMgr := jwt.NewManager(cfg.JWTSecret)
 
-	r := router.New(db, rdb, jwtMgr, st, cfg.AppEnv)
+	// RabbitMQ（可选，连不上则降级为同步通知）
+	var mqClient *mq.Client
+	if cfg.RabbitMQURL != "" {
+		mqClient, err = mq.New(cfg.RabbitMQURL)
+		if err != nil {
+			slog.Warn("rabbitmq connect failed, fallback to sync notification", "error", err)
+			mqClient = nil
+		}
+	}
+
+	notifRepo := repository.NewNotificationRepo(db)
+	notifSvc := service.NewNotificationService(notifRepo, mqClient)
+
+	r := router.New(db, rdb, jwtMgr, st, notifSvc, cfg.AppEnv)
 	r.Static("/uploads", cfg.UploadDir)
+
+	if mqClient != nil {
+		go startNotificationConsumer(mqClient, notifSvc)
+	}
 
 	slog.Info("server starting", "port", cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {
 		slog.Error("server failed", "error", err)
 		os.Exit(1)
+	}
+}
+
+func startNotificationConsumer(mqClient *mq.Client, notifSvc *service.NotificationService) {
+	msgs, err := mqClient.Consume(service.NotificationQueue)
+	if err != nil {
+		slog.Error("failed to consume notification queue", "error", err)
+		return
+	}
+	for msg := range msgs {
+		if err := notifSvc.ProcessNotification(msg.Body); err != nil {
+			slog.Error("failed to process notification", "error", err)
+			_ = msg.Nack(false, true)
+			continue
+		}
+		_ = msg.Ack(false)
 	}
 }

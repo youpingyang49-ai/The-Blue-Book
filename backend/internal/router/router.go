@@ -13,7 +13,7 @@ import (
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/service"
 )
 
-func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage, appEnv string) *gin.Engine {
+func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage, notifSvc *service.NotificationService, appEnv string) *gin.Engine {
 	r := gin.Default()
 	r.Use(cors())
 
@@ -22,8 +22,6 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 	userRepo := repository.NewUserRepo(db)
 	followRepo := repository.NewFollowRepo(db)
 	topicRepo := repository.NewTopicRepo(db)
-	notifRepo := repository.NewNotificationRepo(db)
-	notifSvc := service.NewNotificationService(notifRepo)
 	userSvc := service.NewUserService(userRepo, followRepo)
 
 	authSvc := service.NewAuthService(userRepo, rdb, jwtMgr)
