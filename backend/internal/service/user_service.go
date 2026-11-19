@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/model"
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/repository"
 )
 
@@ -26,6 +27,55 @@ type UserProfileDTO struct {
 	FollowerCount  int64  `json:"follower_count"`
 	FollowingCount int64  `json:"following_count"`
 	IsFollowing    bool   `json:"is_following"`
+}
+
+// FollowUserDTO 用于「关注 / 粉丝」列表。
+type FollowUserDTO struct {
+	ID          uint   `json:"id"`
+	Nickname    string `json:"nickname"`
+	AvatarURL   string `json:"avatar_url"`
+	Bio         string `json:"bio"`
+	IsFollowing bool   `json:"is_following"`
+}
+
+func (s *UserService) toFollowDTOs(users []model.User, viewerID uint) ([]FollowUserDTO, error) {
+	ids := make([]uint, len(users))
+	for i, u := range users {
+		ids[i] = u.ID
+	}
+	followed, err := s.followRepo.FollowedIDs(viewerID, ids)
+	if err != nil {
+		followed = map[uint]bool{}
+	}
+	dtos := make([]FollowUserDTO, 0, len(users))
+	for _, u := range users {
+		dtos = append(dtos, FollowUserDTO{
+			ID:          u.ID,
+			Nickname:    u.Nickname,
+			AvatarURL:   u.AvatarURL,
+			Bio:         u.Bio,
+			IsFollowing: followed[u.ID],
+		})
+	}
+	return dtos, nil
+}
+
+func (s *UserService) Following(ctx context.Context, userID, viewerID uint, page, pageSize int) ([]FollowUserDTO, int64, error) {
+	users, total, err := s.followRepo.ListFollowing(userID, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	dtos, err := s.toFollowDTOs(users, viewerID)
+	return dtos, total, err
+}
+
+func (s *UserService) Followers(ctx context.Context, userID, viewerID uint, page, pageSize int) ([]FollowUserDTO, int64, error) {
+	users, total, err := s.followRepo.ListFollowers(userID, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	dtos, err := s.toFollowDTOs(users, viewerID)
+	return dtos, total, err
 }
 
 func (s *UserService) Profile(ctx context.Context, userID, viewerID uint) (*UserProfileDTO, error) {

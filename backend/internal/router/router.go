@@ -61,6 +61,8 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 		api.GET("/posts/:id/comments", middleware.OptionalAuth(jwtMgr), commentHandler.List)
 		api.GET("/users/:id", middleware.OptionalAuth(jwtMgr), userHandler.Get)
 		api.GET("/users/:id/posts", middleware.OptionalAuth(jwtMgr), postHandler.UserPosts)
+		api.GET("/users/:id/following", middleware.OptionalAuth(jwtMgr), userHandler.Following)
+		api.GET("/users/:id/followers", middleware.OptionalAuth(jwtMgr), userHandler.Followers)
 
 		protected := api.Group("")
 		protected.Use(middleware.Auth(jwtMgr))

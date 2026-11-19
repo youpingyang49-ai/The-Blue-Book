@@ -55,3 +55,43 @@ func (h *UserHandler) Get(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"user": profile})
 }
+
+// Following 关注列表
+func (h *UserHandler) Following(c *gin.Context) {
+	h.listRelations(c, true)
+}
+
+// Followers 粉丝列表
+func (h *UserHandler) Followers(c *gin.Context) {
+	h.listRelations(c, false)
+}
+
+func (h *UserHandler) listRelations(c *gin.Context, following bool) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	page := 1
+	if v, err := strconv.Atoi(c.DefaultQuery("page", "1")); err == nil && v > 0 {
+		page = v
+	}
+	pageSize := 20
+	if v, err := strconv.Atoi(c.DefaultQuery("page_size", "20")); err == nil && v > 0 && v <= 50 {
+		pageSize = v
+	}
+	viewerID := c.GetUint("userID")
+
+	var items []service.FollowUserDTO
+	var total int64
+	if following {
+		items, total, err = h.userSvc.Following(c.Request.Context(), uint(id), viewerID, page, pageSize)
+	} else {
+		items, total, err = h.userSvc.Followers(c.Request.Context(), uint(id), viewerID, page, pageSize)
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "total": total})
+}

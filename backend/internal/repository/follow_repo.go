@@ -58,3 +58,57 @@ func (r *FollowRepo) FollowingCount(userID uint) (int64, error) {
 	err := r.db.Model(&model.Follow{}).Where("follower_id = ?", userID).Count(&count).Error
 	return count, err
 }
+
+// ListFollowing 返回 userID 关注的人（按关注时间倒序）。
+func (r *FollowRepo) ListFollowing(userID uint, page, pageSize int) ([]model.User, int64, error) {
+	var total int64
+	if err := r.db.Model(&model.User{}).
+		Joins("JOIN follows ON follows.followee_id = users.id").
+		Where("follows.follower_id = ?", userID).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var users []model.User
+	err := r.db.Model(&model.User{}).
+		Joins("JOIN follows ON follows.followee_id = users.id").
+		Where("follows.follower_id = ?", userID).
+		Order("follows.created_at DESC").
+		Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&users).Error
+	return users, total, err
+}
+
+// ListFollowers 返回关注 userID 的人（按关注时间倒序）。
+func (r *FollowRepo) ListFollowers(userID uint, page, pageSize int) ([]model.User, int64, error) {
+	var total int64
+	if err := r.db.Model(&model.User{}).
+		Joins("JOIN follows ON follows.follower_id = users.id").
+		Where("follows.followee_id = ?", userID).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var users []model.User
+	err := r.db.Model(&model.User{}).
+		Joins("JOIN follows ON follows.follower_id = users.id").
+		Where("follows.followee_id = ?", userID).
+		Order("follows.created_at DESC").
+		Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&users).Error
+	return users, total, err
+}
+
+// FollowedIDs 批量查询 viewer 是否关注了给定用户，避免列表 N+1。
+func (r *FollowRepo) FollowedIDs(viewerID uint, userIDs []uint) (map[uint]bool, error) {
+	set := make(map[uint]bool, len(userIDs))
+	if viewerID == 0 || len(userIDs) == 0 {
+		return set, nil
+	}
+	var follows []model.Follow
+	if err := r.db.Where("follower_id = ? AND followee_id IN ?", viewerID, userIDs).Find(&follows).Error; err != nil {
+		return set, err
+	}
+	for _, f := range follows {
+		set[f.FolloweeID] = true
+	}
+	return set, nil
+}
