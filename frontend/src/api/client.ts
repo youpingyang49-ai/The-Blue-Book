@@ -1,10 +1,55 @@
+import { useAuth } from "../store/auth";
+
 const BASE = "/api/v1";
 
 function getToken(): string | null {
   return localStorage.getItem("token");
 }
 
-async function request(path: string, options: RequestInit = {}): Promise<any> {
+function getRefreshToken(): string | null {
+  return localStorage.getItem("refresh_token");
+}
+
+// 同一时刻只发起一次刷新，避免并发 401 触发多次刷新
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(BASE + "/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (!data?.access_token) return false;
+        localStorage.setItem("token", data.access_token);
+        if (data.refresh_token) localStorage.setItem("refresh_token", data.refresh_token);
+        useAuth.setState({ token: data.access_token, user: data.user ?? useAuth.getState().user });
+        return true;
+      } catch {
+        return false;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+function forceReLogin() {
+  useAuth.getState().logout();
+  const path = window.location.pathname + window.location.search;
+  if (!path.startsWith("/login")) {
+    window.location.href = "/login?redirect=" + encodeURIComponent(path);
+  }
+}
+
+async function request(path: string, options: RequestInit = {}, allowRetry = true): Promise<any> {
   const token = getToken();
   const headers: Record<string, string> = {};
   if (options.headers) {
@@ -17,6 +62,15 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
     headers["Content-Type"] = "application/json";
   }
   const res = await fetch(BASE + path, { ...options, headers });
+
+  // access token 过期：静默刷新后重试一次
+  if (res.status === 401 && allowRetry && !path.startsWith("/auth/")) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) return request(path, options, false);
+    forceReLogin();
+    throw new Error("登录已过期，请重新登录");
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "请求失败" }));
     throw new Error(err.error || "请求失败");

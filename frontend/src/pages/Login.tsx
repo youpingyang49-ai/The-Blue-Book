@@ -101,7 +101,7 @@ export default function Login() {
     setMessage(null);
     try {
       const result = await api.login(phone, code);
-      setAuth(result.access_token, result.user);
+      setAuth(result.access_token, result.user, result.refresh_token);
       navigate(redirect, { replace: true });
     } catch (error: any) {
       setMessage({ text: error?.message || "登录失败，请检查验证码", kind: "error" });
