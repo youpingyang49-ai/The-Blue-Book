@@ -1,237 +1,434 @@
-# The-Blue-Book 📕
+<div align="center">
 
-一个小红书风格的轻量图文社区（笔记分享），Go + React 前后端分离实现，功能完整、开箱即用。
+# The Blue Book
 
-![Go](https://img.shields.io/badge/Go-1.27-00ADD8?style=flat&logo=go&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat&logo=typescript&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-blue?style=flat)
+**一个轻量、现代的图文笔记社区 —— Go + React 全栈实现**
+
+记录灵感、分享生活，让每一次发现都值得被看见。
+
+[![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![React](https://img.shields.io/badge/React-19-087EA4?logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
+[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-4.x-FF6600?logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+
+[功能特性](#-功能特性) · [界面预览](#-界面预览) · [快速开始](#-快速开始) · [API 概览](#-api-概览) · [贡献指南](#-贡献指南)
+
+</div>
+
+---
+
+## 📖 目录
+
+- [项目简介](#-项目简介)
+- [界面预览](#-界面预览)
+- [功能特性](#-功能特性)
+- [技术栈](#-技术栈)
+- [系统架构](#-系统架构)
+- [快速开始](#-快速开始)
+- [配置说明](#-配置说明)
+- [项目结构](#-项目结构)
+- [API 概览](#-api-概览)
+- [开发与测试](#-开发与测试)
+- [部署建议](#-部署建议)
+- [路线图](#-路线图)
+- [贡献指南](#-贡献指南)
+- [许可证](#-许可证)
+
+## 💡 项目简介
+
+**The Blue Book** 是一个面向普通用户的轻量图文社区，用户可以发布图文笔记、浏览瀑布流内容、关注感兴趣的创作者，并通过点赞、收藏、评论和私信进行互动。
+
+项目采用前后端分离架构：后端使用 Go + Gin + GORM，前端使用 React + TypeScript + Vite，依赖 MySQL / Redis / RabbitMQ。前端完全使用原生 CSS 构建了一套自己的设计系统，不依赖任何 UI 组件库。
+
+适合作为全栈项目学习、二次开发或小型社区产品的基础骨架。
 
 ## 📸 界面预览
 
-| 登录页 | 社区首页（瀑布流） |
-| --- | --- |
-| ![登录页](docs/screenshots/login.webp) | ![首页](docs/screenshots/home.webp) |
+> 以下截图均来自实际运行的项目，数据来自后端真实接口。
 
-| 笔记详情 | 个人主页 |
-| --- | --- |
-| ![笔记详情](docs/screenshots/post-detail.webp) | ![个人主页](docs/screenshots/profile.webp) |
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/login.webp" alt="登录页" /></td>
+    <td width="50%"><img src="docs/screenshots/home.webp" alt="社区首页" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>登录页 · 手机号验证码登录</sub></td>
+    <td align="center"><sub>首页 · 侧边导航 + 搜索 + 瀑布流</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/discover.webp" alt="发现页" /></td>
+    <td width="50%"><img src="docs/screenshots/post-detail.webp" alt="笔记详情" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>发现页 · 热门笔记与话题</sub></td>
+    <td align="center"><sub>详情页 · 图文、点赞收藏与评论</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/profile.webp" alt="个人主页" /></td>
+    <td width="50%"><img src="docs/screenshots/notifications.webp" alt="消息中心" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>个人主页 · 笔记 / 点赞 / 收藏 / 关注粉丝</sub></td>
+    <td align="center"><sub>消息中心 · 点赞 / 评论 / 关注 / @ / 私信</sub></td>
+  </tr>
+</table>
 
 <div align="center">
   <img src="docs/screenshots/home-mobile.webp" width="300" alt="移动端首页" />
-  <p><i>移动端：底部导航 + 双列瀑布流</i></p>
+  <p><sub>移动端 · 底部导航 + 双列瀑布流</sub></p>
 </div>
 
 ## ✨ 功能特性
 
-- 🔐 手机号 + 验证码登录（JWT 双 token，未登录访问受限页自动跳登录并回跳）
-- 📝 图文发布：多图上传、话题标签、图片预览与移除
-- 🏠 首页 feed：推荐 / 最新 / 热门 / 关注，四类 Tab 对应真实接口
-- 🧱 瀑布流：2 / 3 / 4 / 5 列随窗口自适应，卡片高度随真实图片比例变化
-- 🔍 搜索：标题 / 正文 / 话题，支持分页加载与热门关键词
-- ❤️ 互动：点赞、收藏、评论（嵌套回复）、关注 / 取关
-- 🔔 消息中心：点赞 / 收藏 / 评论 / 关注 / @提及 / 私信
-- 💬 私信：会话列表 + 未读角标 + 气泡聊天 + 清空记录
-- 👤 个人中心：我的笔记 / 我的点赞 / 我的收藏、粉丝关注统计、退出登录
-- ✏️ 帖子管理：编辑 / 删除（仅作者）
-- 🤖 推荐算法：热度 + 时间衰减 + 话题个性化 + 冷启动兜底
-- 🖥 统一设计语言：一套 token 驱动的响应式 Web UI
+<table>
+<tr><th width="120">模块</th><th>能力</th></tr>
+<tr>
+<td><b>账号</b></td>
+<td>
+
+- 手机号 + 短信验证码登录，未注册自动创建账号
+- JWT 双 Token（Access / Refresh）
+- 未登录访问受限页面自动跳转登录，登录后回跳原目标
+- 刷新页面保持登录态，退出登录清理本地状态
+
+</td>
+</tr>
+<tr>
+<td><b>内容</b></td>
+<td>
+
+- 图文笔记发布：多图上传、话题标签、图片预览与移除
+- 首页四类 Feed：推荐 / 最新 / 热门 / 关注
+- 推荐算法：热度加权 + 时间衰减 + 话题个性化 + 冷启动兜底
+- 瀑布流布局：2 / 3 / 4 / 5 列随窗口自适应，卡片高度跟随真实图片比例
+- 搜索：标题 / 正文 / 话题，支持分页加载
+
+</td>
+</tr>
+<tr>
+<td><b>互动</b></td>
+<td>
+
+- 点赞、收藏、评论（支持嵌套回复与 @提及）
+- 关注 / 取关，关注流，粉丝与关注列表
+- 笔记编辑 / 删除（仅作者）
+
+</td>
+</tr>
+<tr>
+<td><b>消息</b></td>
+<td>
+
+- 消息中心：点赞、收藏、评论、关注、@提及分类查看
+- 私信：会话列表、未读角标、气泡聊天、清空记录
+- RabbitMQ 异步通知（连接失败自动降级为同步写入）
+
+</td>
+</tr>
+<tr>
+<td><b>工程</b></td>
+<td>
+
+- 统一设计系统（Design Tokens + 分层样式）
+- 完整的加载 / 空 / 错误状态与骨架屏
+- 响应式适配：桌面、平板、移动端
+- TypeScript 严格模式 + oxlint
+
+</td>
+</tr>
+</table>
 
 ## 🛠 技术栈
 
-**后端**
+<table>
+<tr><th width="120">分类</th><th>技术</th></tr>
+<tr><td><b>后端</b></td><td>Go 1.27 · Gin · GORM · JWT（golang-jwt/v5）</td></tr>
+<tr><td><b>前端</b></td><td>React 19 · TypeScript · Vite 8 · React Router 7 · Zustand</td></tr>
+<tr><td><b>存储</b></td><td>MySQL 8.0 · Redis 7 · 本地磁盘 / MinIO（可切换）</td></tr>
+<tr><td><b>消息</b></td><td>RabbitMQ（通知异步化）</td></tr>
+<tr><td><b>样式</b></td><td>原生 CSS（设计 Token + 四层样式文件）+ 自研瀑布流</td></tr>
+<tr><td><b>工具</b></td><td>oxlint · Docker Compose</td></tr>
+</table>
 
-| 分类 | 技术 |
-| --- | --- |
-| 语言 | Go 1.27 |
-| Web 框架 | Gin |
-| ORM | GORM |
-| 数据库 | MySQL 8.0 |
-| 缓存 | Redis 7 |
-| 消息队列 | RabbitMQ（通知异步化，连不上自动降级为同步） |
-| 鉴权 | JWT（golang-jwt/v5） |
-| 对象存储 | 本地磁盘 / MinIO 可切换 |
+## 🏗 系统架构
 
-**前端**
+```text
+┌─────────────────────────────┐
+│  浏览器 / React SPA (Vite)   │
+│  路由守卫 · Zustand 状态     │
+└──────────────┬──────────────┘
+               │ HTTP / JSON（/api/v1）
+┌──────────────▼──────────────┐
+│        Gin HTTP 服务         │
+│  Handler → Service → Repo    │
+│  中间件：JWT、CORS、鉴权      │
+└───┬──────────┬──────────┬───┘
+    │          │          │
+┌───▼───┐  ┌───▼───┐  ┌───▼──────┐
+│ MySQL │  │ Redis │  │ RabbitMQ │
+│ 业务数据│  │验证码/限流│ │ 异步通知 │
+└───────┘  └───────┘  └──────────┘
+    │
+┌───▼─────────────────────────┐
+│ 对象存储：本地磁盘 / MinIO   │
+└─────────────────────────────┘
+```
 
-| 分类 | 技术 |
-| --- | --- |
-| 框架 | React 19 + TypeScript |
-| 构建 | Vite 8 |
-| 状态管理 | Zustand |
-| 路由 | React Router 7 |
-| 样式 | 原生 CSS（设计 token + 分层样式文件） |
-| 校验 | oxlint |
-
-## 🎨 设计系统
-
-前端样式按职责拆分为 4 个文件，统一由 `src/index.css` 引入：
-
-| 文件 | 职责 |
-| --- | --- |
-| `styles/tokens.css` | 色板、字号、圆角、阴影、动效、重置样式 |
-| `styles/layout.css` | 应用骨架：固定侧栏、顶部搜索、移动端底部导航 |
-| `styles/components.css` | 按钮、表单、头像、卡片、Tab、骨架屏、弹层、Toast |
-| `styles/pages.css` | 登录、Feed、详情、主页、消息、私信、编辑器等页面级布局 |
-
-核心组件（`src/components/`）：
-
-| 组件 | 说明 |
-| --- | --- |
-| `AppShell` | 统一壳层：侧栏 + 吸顶搜索 + 内容区 + 移动端导航 + 关于弹窗 |
-| `Sidebar` / `HeaderSearch` | 固定导航（含未读角标）、全局搜索 |
-| `MasonryFeed` | 自研瀑布流：最短列放置、保留 DOM 顺序、图片加载后自动重排 |
-| `PostCard` | 笔记卡片：懒加载封面、话题、作者、可交互点赞（乐观更新） |
-| `FeedTabs` / `States` / `Toast` / `Avatar` / `Icon` | 分类切换、加载/空/错误态、轻提示、头像、内联图标 |
-
-响应式断点：`≤900px` 收起侧栏改用底部导航，`≥1700px` 内容区放宽至 5 列。
+- 通知默认通过 RabbitMQ 异步投递；MQ 不可用时自动降级为同步写库，不影响主流程。
+- 图片默认存本地磁盘（`UPLOAD_DIR`），配置 `MINIO_ENDPOINT` 后自动切换 MinIO。
 
 ## 🚀 快速开始
 
 ### 环境要求
 
-- Go 1.27+
-- Node.js 20+
-- Docker + Docker Compose（或自备 MySQL 8 / Redis 7 / RabbitMQ）
+| 依赖 | 版本 |
+| --- | --- |
+| Go | 1.27+ |
+| Node.js | 20+ |
+| MySQL | 8.0+ |
+| Redis | 7+ |
+| RabbitMQ | 可选（不启动则同步通知） |
+| Docker | 可选（用于一键启动依赖） |
 
-### 启动
+### 方式一：Docker Compose 启动依赖
 
-    # 1. 启动本地依赖（MySQL + Redis + RabbitMQ）
-    docker compose up -d
+```bash
+docker compose up -d
+```
 
-    # 2. 启动后端（端口 8080）
-    cd backend
-    go run ./cmd/server
+该命令会启动 MySQL（3306）、Redis（6379）、RabbitMQ（5672 / 15672），并自动创建 `bluebook` 数据库。
 
-    # 3. 启动前端（端口 5173）
-    cd frontend
-    npm install
-    npm run dev
+### 方式二：使用已有服务
 
-浏览器打开 `http://localhost:5173`。
+若本机已有 MySQL / Redis，只需保证连接信息与 [配置说明](#-配置说明) 一致，并手动创建数据库：
 
-> 开发环境下，登录验证码会直接显示在页面提示里（mock 模式），无需真实短信。
+```sql
+CREATE DATABASE bluebook DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
 
-> RabbitMQ 为可选依赖：未启动时后端会打印 `fallback to sync notification`，通知改为同步写入，其余功能不受影响。
+### 启动后端
 
-### 构建检查
+```bash
+cd backend
+go mod download
+go run ./cmd/server
+```
 
-    cd frontend
-    npm run build     # tsc -b && vite build
-    npm run lint      # oxlint
+服务默认监听 `http://127.0.0.1:8080`，健康检查：
 
-## 📁 项目结构
+```bash
+curl http://127.0.0.1:8080/api/v1/health
+# {"db":"connected","status":"ok"}
+```
 
-    The-Blue-Book/
-    ├── backend/                 # Go 后端
-    │   ├── cmd/server/          # 程序入口
-    │   └── internal/
-    │       ├── config/          # 配置
-    │       ├── model/           # 数据模型
-    │       ├── repository/      # 数据访问层
-    │       ├── service/         # 业务逻辑层
-    │       ├── handler/         # HTTP 处理器
-    │       ├── middleware/      # 中间件（鉴权、CORS）
-    │       ├── router/          # 路由
-    │       └── pkg/             # 公共库（jwt、storage、mq）
-    ├── frontend/                # React 前端
-    │   └── src/
-    │       ├── api/             # 接口封装
-    │       ├── store/           # 状态管理（Zustand）
-    │       ├── components/      # 通用组件（壳层/瀑布流/卡片/状态）
-    │       ├── styles/          # 设计 token 与分层样式
-    │       └── pages/           # 页面
-    ├── docs/screenshots/        # README 预览图
-    └── docker-compose.yml       # 本地依赖（MySQL + Redis + RabbitMQ + MinIO 可选）
+### 启动前端
 
-## 📡 API 概览
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-    # 认证
-    POST   /api/v1/auth/send-code        发送验证码
-    POST   /api/v1/auth/login            验证码登录
+打开 `http://localhost:5173`，使用手机号登录。
 
-    # 帖子
-    GET    /api/v1/posts                 首页 feed（sort=recommend|latest|hot|following）
-    POST   /api/v1/posts                 发布帖子
-    GET    /api/v1/posts/:id             帖子详情
-    PUT    /api/v1/posts/:id             编辑帖子（仅作者）
-    DELETE /api/v1/posts/:id             删除帖子（仅作者）
+> 💡 开发环境（`APP_ENV=development`）下不会真实发送短信，验证码会直接显示在登录页提示中。
 
-    # 互动
-    POST   /api/v1/posts/:id/like        点赞
-    DELETE /api/v1/posts/:id/like        取消点赞
-    POST   /api/v1/posts/:id/favorite    收藏
-    DELETE /api/v1/posts/:id/favorite    取消收藏
-    POST   /api/v1/posts/:id/comments    发评论
-    GET    /api/v1/posts/:id/comments    评论列表
+## ⚙️ 配置说明
 
-    # 用户 / 关注
-    GET    /api/v1/users/me              当前用户
-    GET    /api/v1/users/:id             用户主页
-    GET    /api/v1/users/:id/posts       某用户的帖子
-    POST   /api/v1/users/:id/follow      关注
-    DELETE /api/v1/users/:id/follow      取关
-
-    # 消息 / 通知
-    GET    /api/v1/notifications           通知列表（type=like|comment|follow|mention）
-    GET    /api/v1/notifications/unread-count  未读数
-    POST   /api/v1/notifications/read      全部已读
-    GET    /api/v1/conversations           私信会话列表
-    GET    /api/v1/messages/:id            聊天记录
-    POST   /api/v1/messages/:id            发私信
-
-    # 其他
-    GET    /api/v1/search                搜索（标题/正文/话题）
-    POST   /api/v1/upload                图片上传
-    GET    /api/v1/health                健康检查
-
-## ⚙️ 配置
-
-后端通过环境变量配置，见 `backend/.env.example`：
+后端通过环境变量配置，默认值见 [`backend/.env.example`](backend/.env.example)：
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| PORT | 8080 | 服务端口 |
-| DATABASE_URL | bluebook:bluebook@tcp(127.0.0.1:3306)/bluebook?... | MySQL 连接串 |
-| REDIS_ADDR | 127.0.0.1:6379 | Redis 地址 |
-| RABBITMQ_URL | amqp://guest:guest@127.0.0.1:5672/ | RabbitMQ 地址（留空则不同步通知） |
-| JWT_SECRET | the-blue-book-dev-secret-change-me | JWT 密钥（生产务必修改） |
-| APP_ENV | development | 环境（development 下返回验证码） |
-| UPLOAD_DIR | ./uploads | 本地图片目录 |
-| PUBLIC_BASE_URL | http://127.0.0.1:8080 | 图片访问前缀 |
-| MINIO_ENDPOINT | （空） | 留空用本地磁盘，设置后切 MinIO |
+| `PORT` | `8080` | HTTP 服务端口 |
+| `DATABASE_URL` | `bluebook:bluebook@tcp(127.0.0.1:3306)/bluebook?...` | MySQL 连接串 |
+| `REDIS_ADDR` | `127.0.0.1:6379` | Redis 地址 |
+| `RABBITMQ_URL` | `amqp://guest:guest@127.0.0.1:5672/` | RabbitMQ 地址，留空则不用 MQ |
+| `JWT_SECRET` | `the-blue-book-dev-secret-change-me` | JWT 签名密钥（生产必须修改） |
+| `APP_ENV` | `development` | 环境标识，development 下返回验证码 |
+| `UPLOAD_DIR` | `./uploads` | 本地图片存储目录 |
+| `PUBLIC_BASE_URL` | `http://127.0.0.1:8080` | 图片访问前缀 |
+| `MINIO_ENDPOINT` | *(空)* | 留空使用本地磁盘，设置后切换 MinIO |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | `minioadmin` | MinIO 凭证 |
+| `MINIO_BUCKET` | `bluebook` | MinIO Bucket |
 
-## ⚠️ 生产部署注意
+## 📁 项目结构
 
-- 验证码当前为 mock 模式（开发环境直接返回），生产需接入真实短信服务
-- 对象存储默认本地磁盘，生产建议切换 MinIO / OSS（设置 MINIO_ENDPOINT）
-- JWT_SECRET 生产环境务必修改为强随机密钥
-- 国内上线需 ICP 备案，UGC 内容需接入内容审核
+```text
+The-Blue-Book/
+├── backend/                      # Go 后端
+│   ├── cmd/server/               # 程序入口
+│   └── internal/
+│       ├── config/               # 环境变量配置
+│       ├── model/                # GORM 数据模型
+│       ├── repository/           # 数据访问层
+│       ├── service/              # 业务逻辑层
+│       ├── handler/              # HTTP 处理器
+│       ├── middleware/           # JWT 鉴权、CORS
+│       ├── router/               # 路由注册
+│       └── pkg/                  # jwt / storage / mq 等公共库
+├── frontend/                     # React 前端
+│   └── src/
+│       ├── api/                  # 接口封装
+│       ├── store/                # Zustand 状态
+│       ├── components/           # 通用组件
+│       │   ├── AppShell.tsx      # 应用壳层（侧栏 + 搜索 + 内容区）
+│       │   ├── Sidebar.tsx       # 固定侧边导航
+│       │   ├── HeaderSearch.tsx  # 全局搜索
+│       │   ├── MasonryFeed.tsx   # 自研瀑布流
+│       │   ├── PostCard.tsx      # 笔记卡片
+│       │   ├── FollowListModal.tsx # 关注 / 粉丝列表
+│       │   └── States.tsx        # 加载 / 空 / 错误态
+│       ├── styles/               # 设计系统（token / 布局 / 组件 / 页面）
+│       └── pages/                # 页面：首页、发现、发布、详情、消息、私信、个人中心…
+├── docs/screenshots/             # README 预览图
+├── docker-compose.yml            # 本地依赖（MySQL / Redis / RabbitMQ / MinIO）
+└── README.md
+```
+
+## 📡 API 概览
+
+所有接口以 `/api/v1` 为前缀，除标注外均返回 JSON。
+
+<details>
+<summary><b>认证</b></summary>
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/auth/send-code` | 发送短信验证码（开发环境返回 `debug_code`） |
+| POST | `/auth/login` | 验证码登录，返回 `access_token` / `refresh_token` |
+
+</details>
+
+<details>
+<summary><b>笔记</b></summary>
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/posts?sort=recommend\|latest\|hot\|following` | 首页 Feed |
+| POST | `/posts` | 发布笔记（需登录） |
+| GET | `/posts/:id` | 笔记详情 |
+| PUT | `/posts/:id` | 编辑笔记（仅作者） |
+| DELETE | `/posts/:id` | 删除笔记（仅作者） |
+| GET | `/search?q=` | 搜索标题 / 正文 / 话题 |
+
+</details>
+
+<details>
+<summary><b>互动</b></summary>
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST / DELETE | `/posts/:id/like` | 点赞 / 取消点赞 |
+| POST / DELETE | `/posts/:id/favorite` | 收藏 / 取消收藏 |
+| GET / POST | `/posts/:id/comments` | 评论列表 / 发表评论 |
+
+</details>
+
+<details>
+<summary><b>用户与关注</b></summary>
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/users/me` | 当前登录用户 |
+| GET | `/users/:id` | 用户主页（含粉丝 / 关注数） |
+| GET | `/users/:id/posts` | 用户的笔记 |
+| GET | `/users/:id/following` | 关注列表 |
+| GET | `/users/:id/followers` | 粉丝列表 |
+| POST / DELETE | `/users/:id/follow` | 关注 / 取关 |
+
+</details>
+
+<details>
+<summary><b>消息与私信</b></summary>
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/notifications?type=` | 通知列表（like / comment / follow / mention） |
+| GET | `/notifications/unread-count` | 未读数量 |
+| POST | `/notifications/read` | 全部标为已读 |
+| GET | `/conversations` | 私信会话列表 |
+| GET / POST | `/messages/:id` | 聊天记录 / 发送私信 |
+| POST | `/messages/:id/unread` | 标记会话未读 |
+| POST | `/conversations/:id/hide` | 隐藏会话 |
+
+</details>
+
+<details>
+<summary><b>其他</b></summary>
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/upload` | 图片上传（需登录） |
+| GET | `/health` | 健康检查（含数据库连通性） |
+
+</details>
+
+## 🧪 开发与测试
+
+```bash
+# 前端类型检查 + 生产构建
+cd frontend
+npm run build
+
+# 前端代码规范检查
+npm run lint
+
+# 后端编译与静态检查
+cd backend
+go build ./...
+go vet ./...
+```
+
+前端构建产物输出到 `frontend/dist/`，可直接配合 Nginx 部署。
+
+## 🚢 部署建议
+
+1. **反向代理**：使用 Nginx 托管 `frontend/dist`，并将 `/api` 与 `/uploads` 反向代理到 Go 服务。
+2. **进程管理**：后端以 systemd / supervisor 托管，配置 `APP_ENV=production`。
+3. **密钥与凭证**：务必修改 `JWT_SECRET`，数据库与 MinIO 使用独立账号。
+4. **对象存储**：生产环境建议启用 MinIO / OSS，避免本地磁盘单点。
+5. **短信服务**：接入真实短信服务商，替换当前 mock 验证码逻辑。
+6. **合规**：国内部署需 ICP 备案；UGC 产品需接入内容审核与举报机制。
 
 ## 🗺 路线图
 
-**已完成**
-
-- [x] 手机号验证码登录（JWT 双 token）
+- [x] 手机号验证码登录（JWT 双 Token）
 - [x] 图文发布（多图 + 话题标签）
-- [x] 首页 feed（推荐 / 最新 / 热门 / 关注）
+- [x] 首页 Feed（推荐 / 最新 / 热门 / 关注）
 - [x] 搜索（标题 / 正文 / 话题）
-- [x] 点赞 / 收藏 / 评论
-- [x] 关注 / 关注流 / 个人主页
-- [x] 帖子编辑 / 删除
-- [x] 评论回复（嵌套）
+- [x] 点赞 / 收藏 / 评论（嵌套回复）
+- [x] 关注 / 关注流 / 粉丝与关注列表
 - [x] 消息通知 + @提及 + 私信
 - [x] 推荐算法（热度 + 时间衰减 + 话题个性化）
 - [x] RabbitMQ 通知异步化（不可用时自动降级）
-- [x] 前端全站 UI 重构：固定侧栏 + 顶部搜索 + 瀑布流 + 统一设计系统
+- [x] 全站 UI 重构：固定侧栏 + 顶部搜索 + 瀑布流 + 设计系统
 - [x] 响应式适配（桌面 / 平板 / 移动端）
-
-**规划中**
-
 - [ ] 接入真实短信服务
 - [ ] 接入 OSS / MinIO 生产对象存储
 - [ ] 内容审核（敏感词 / 图片审核）
+- [ ] 单元测试与接口测试
 
-## 📄 License
+## 🤝 贡献指南
 
-[MIT](./LICENSE)
+欢迎提交 Issue 和 Pull Request。开始之前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+简要约定：
+
+- 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)（`feat:` / `fix:` / `docs:` / `refactor:`）
+- 新增功能请补充测试或说明验证方式
+- 提交前确保 `npm run build`、`npm run lint`、`go build ./...` 通过
+- 请勿在 PR 中混入格式化无关改动
+
+## 📄 许可证
+
+本项目基于 [MIT License](./LICENSE) 开源。
+
+## 🙏 致谢
+
+- 交互与视觉参考自小红书 Web 端，仅用于学习与设计研究
+- 示例封面图来自 [Lorem Picsum](https://picsum.photos/)
+- 感谢所有 Issue、Star 和 PR 的贡献者
