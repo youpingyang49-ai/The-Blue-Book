@@ -206,3 +206,16 @@ func (r *PostRepo) FavoritedPostIDs(userID uint, postIDs []uint) (map[uint]bool,
 	}
 	return set, nil
 }
+
+func (r *PostRepo) ListByFollowees(followerID uint, page, pageSize int) ([]model.Post, error) {
+	var posts []model.Post
+	err := r.db.Joins("JOIN follows ON follows.followee_id = posts.user_id").
+		Where("follows.follower_id = ?", followerID).
+		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Order("sort_order ASC")
+		}).
+		Order("posts.id DESC").
+		Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&posts).Error
+	return posts, err
+}

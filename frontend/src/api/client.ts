@@ -53,4 +53,6 @@ export const api = {
   createComment: (id: number, content: string) => request("/posts/" + id + "/comments", { method: "POST", body: JSON.stringify({ content }) }),
   follow: (id: number) => request("/users/" + id + "/follow", { method: "POST" }),
   unfollow: (id: number) => request("/users/" + id + "/follow", { method: "DELETE" }),
+  getUser: (id: number) => request("/users/" + id),
+  userPosts: (id: number, page = 1) => request("/users/" + id + "/posts?page=" + page + "&page_size=20"),
 };

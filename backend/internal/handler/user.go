@@ -2,18 +2,21 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/repository"
+	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/service"
 )
 
 type UserHandler struct {
 	userRepo *repository.UserRepo
+	userSvc  *service.UserService
 }
 
-func NewUserHandler(userRepo *repository.UserRepo) *UserHandler {
-	return &UserHandler{userRepo: userRepo}
+func NewUserHandler(userRepo *repository.UserRepo, userSvc *service.UserService) *UserHandler {
+	return &UserHandler{userRepo: userRepo, userSvc: userSvc}
 }
 
 func (h *UserHandler) Me(c *gin.Context) {
@@ -32,4 +35,23 @@ func (h *UserHandler) Me(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+func (h *UserHandler) Get(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	viewerID := c.GetUint("userID")
+	profile, err := h.userSvc.Profile(c.Request.Context(), uint(id), viewerID)
+	if err != nil {
+		if err == service.ErrUserNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": profile})
 }

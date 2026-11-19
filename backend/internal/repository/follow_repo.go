@@ -46,3 +46,15 @@ func (r *FollowRepo) IsFollowing(followerID, followeeID uint) (bool, error) {
 	}
 	return count > 0, nil
 }
+
+func (r *FollowRepo) FollowerCount(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.Follow{}).Where("followee_id = ?", userID).Count(&count).Error
+	return count, err
+}
+
+func (r *FollowRepo) FollowingCount(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.Follow{}).Where("follower_id = ?", userID).Count(&count).Error
+	return count, err
+}

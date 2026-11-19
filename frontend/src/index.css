@@ -99,6 +99,63 @@ input:focus, textarea:focus {
   padding: 5px 8px;
 }
 
+.share-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100;
+}
+
+.share-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 8px 16px 16px;
+}
+
+.share-sheet button {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: center;
+}
+
+.share-sheet button.cancel {
+  border-bottom: none;
+  color: #999;
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-info h2 {
+  font-size: 20px;
+}
+
+.bio {
+  color: #999;
+  font-size: 13px;
+  margin: 4px 0 8px;
+}
+
+.profile-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #666;
+}
+
+.user-profile-page {
+  padding-bottom: 70px;
+}
+
 .sort-tabs {
   display: flex;
   gap: 16px;

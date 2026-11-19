@@ -197,3 +197,19 @@ func (s *PostService) Favorite(ctx context.Context, userID, postID uint) (bool, 
 func (s *PostService) Unfavorite(ctx context.Context, userID, postID uint) (bool, error) {
 	return s.postRepo.Unfavorite(userID, postID)
 }
+
+func (s *PostService) FollowingFeed(ctx context.Context, userID uint, page, pageSize int) ([]PostDTO, error) {
+	posts, err := s.postRepo.ListByFollowees(userID, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildDTOs(ctx, posts, userID)
+}
+
+func (s *PostService) UserPosts(ctx context.Context, targetUserID uint, page, pageSize int, viewerID uint) ([]PostDTO, error) {
+	posts, err := s.postRepo.ListByUser(targetUserID, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildDTOs(ctx, posts, viewerID)
+}

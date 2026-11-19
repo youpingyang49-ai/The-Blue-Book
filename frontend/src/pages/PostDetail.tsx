@@ -17,6 +17,7 @@ export default function PostDetail() {
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [commentText, setCommentText] = useState("");
   const [msg, setMsg] = useState("");
+  const [showShare, setShowShare] = useState(false);
 
   const load = async () => {
     try {
@@ -82,13 +83,31 @@ export default function PostDetail() {
     }
   };
 
-  const share = async () => {
+  const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
       setMsg("链接已复制，去分享吧");
     } catch (e) {
       setMsg("复制失败");
     }
+    setShowShare(false);
+  };
+
+  const saveImage = async () => {
+    const url = post.image_urls && post.image_urls[0];
+    if (!url) return;
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "cover.jpg";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      setMsg("保存失败");
+    }
+    setShowShare(false);
   };
 
   const submitComment = async () => {
@@ -114,7 +133,7 @@ export default function PostDetail() {
     <div className="detail-page">
       <header className="topbar detail-topbar">
         <button className="back" onClick={() => navigate(-1)}>←</button>
-        <div className="detail-author">
+        <div className="detail-author" onClick={() => navigate("/user/" + post.author.id)}>
           <div className="avatar">{(post.author?.nickname || "U").charAt(0)}</div>
           <span className="nickname">{post.author?.nickname}</span>
         </div>
@@ -123,7 +142,7 @@ export default function PostDetail() {
             {post.is_following ? "已关注" : "+ 关注"}
           </button>
         )}
-        <button className="share-btn" onClick={share}>分享</button>
+        <button className="share-btn" onClick={() => setShowShare(true)}>分享</button>
       </header>
       <div className="detail-images">
         {(post.image_urls || []).map((u: string) => (
@@ -170,6 +189,15 @@ export default function PostDetail() {
           ))
         )}
       </div>
+      {showShare && (
+        <div className="share-overlay" onClick={() => setShowShare(false)}>
+          <div className="share-sheet" onClick={(e) => e.stopPropagation()}>
+            <button onClick={copyLink}>复制链接</button>
+            <button onClick={saveImage}>保存封面图</button>
+            <button className="cancel" onClick={() => setShowShare(false)}>取消</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

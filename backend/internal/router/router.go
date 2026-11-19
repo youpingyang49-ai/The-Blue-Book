@@ -15,15 +15,17 @@ import (
 
 func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage, appEnv string) *gin.Engine {
 	r := gin.Default()
+	r.Use(cors())
 
 	health := handler.NewHealthHandler(db)
 
 	userRepo := repository.NewUserRepo(db)
+	followRepo := repository.NewFollowRepo(db)
+	userSvc := service.NewUserService(userRepo, followRepo)
+
 	authSvc := service.NewAuthService(userRepo, rdb, jwtMgr)
 	authHandler := handler.NewAuthHandler(authSvc, appEnv)
-	userHandler := handler.NewUserHandler(userRepo)
-
-	followRepo := repository.NewFollowRepo(db)
+	userHandler := handler.NewUserHandler(userRepo, userSvc)
 
 	postRepo := repository.NewPostRepo(db)
 	postSvc := service.NewPostService(postRepo, followRepo, st)
@@ -51,6 +53,8 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 		api.GET("/posts/:id", middleware.OptionalAuth(jwtMgr), postHandler.Detail)
 		api.GET("/search", middleware.OptionalAuth(jwtMgr), postHandler.Search)
 		api.GET("/posts/:id/comments", middleware.OptionalAuth(jwtMgr), commentHandler.List)
+		api.GET("/users/:id", middleware.OptionalAuth(jwtMgr), userHandler.Get)
+		api.GET("/users/:id/posts", middleware.OptionalAuth(jwtMgr), postHandler.UserPosts)
 
 		protected := api.Group("")
 		protected.Use(middleware.Auth(jwtMgr))
@@ -72,4 +76,17 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 	}
 
 	return r
+}
+
+func cors() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	}
 }

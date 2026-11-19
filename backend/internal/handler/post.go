@@ -55,7 +55,17 @@ func (h *PostHandler) List(c *gin.Context) {
 	}
 	viewerID := c.GetUint("userID")
 
-	dtos, err := h.post.Feed(c.Request.Context(), sort, page, pageSize, viewerID)
+	var dtos []service.PostDTO
+	var err error
+	if sort == "following" {
+		if viewerID == 0 {
+			c.JSON(http.StatusOK, gin.H{"items": []service.PostDTO{}, "page": page, "page_size": pageSize})
+			return
+		}
+		dtos, err = h.post.FollowingFeed(c.Request.Context(), viewerID, page, pageSize)
+	} else {
+		dtos, err = h.post.Feed(c.Request.Context(), sort, page, pageSize, viewerID)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
 		return
@@ -213,6 +223,29 @@ func (h *PostHandler) MyFavorites(c *gin.Context) {
 		pageSize = 20
 	}
 	dtos, err := h.post.MyFavorites(c.Request.Context(), userID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": dtos, "page": page, "page_size": pageSize})
+}
+
+func (h *PostHandler) UserPosts(c *gin.Context) {
+	targetID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 50 {
+		pageSize = 20
+	}
+	viewerID := c.GetUint("userID")
+	dtos, err := h.post.UserPosts(c.Request.Context(), uint(targetID), page, pageSize, viewerID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
 		return
