@@ -1,4 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import type { ReactNode } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useAuth } from "./store/auth";
+import { ToastProvider } from "./components/Toast";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import CreatePost from "./pages/CreatePost";
@@ -10,22 +14,78 @@ import EditPost from "./pages/EditPost";
 import Notifications from "./pages/Notifications";
 import Chat from "./pages/Chat";
 
+function ScrollToTop() {
+  const location = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [location.pathname]);
+  return null;
+}
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const token = useAuth((state) => state.token);
+  const location = useLocation();
+  if (!token) {
+    const target = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?redirect=${target}`} replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/create" element={<CreatePost />} />
-        <Route path="/post/:id" element={<PostDetail />} />
-        <Route path="/edit/:id" element={<EditPost />} />
-        <Route path="/search" element={<Search />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/chat/:id" element={<Chat />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/user/:id" element={<UserProfile />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ToastProvider>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/post/:id" element={<PostDetail />} />
+          <Route path="/user/:id" element={<UserProfile />} />
+          <Route
+            path="/create"
+            element={
+              <RequireAuth>
+                <CreatePost />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/edit/:id"
+            element={
+              <RequireAuth>
+                <EditPost />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <RequireAuth>
+                <Notifications />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/chat/:id"
+            element={
+              <RequireAuth>
+                <Chat />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <Profile />
+              </RequireAuth>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

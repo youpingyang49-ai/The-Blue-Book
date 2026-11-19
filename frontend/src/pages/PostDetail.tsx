@@ -1,7 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../store/auth";
+import AppShell from "../components/AppShell";
+import Avatar from "../components/Avatar";
+import Icon from "../components/Icon";
+import { EmptyState, ErrorState, PageLoading } from "../components/States";
+import { useToast } from "../components/Toast";
 
 interface CommentItem {
   id: number;
@@ -9,233 +14,395 @@ interface CommentItem {
   content: string;
   reply_to_name?: string;
   author: { id: number; nickname: string; avatar_url: string };
+  created_at?: string;
+}
+
+function timeAgo(iso?: string) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const diff = (Date.now() - date.getTime()) / 1000;
+  if (diff < 60) return "刚刚";
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
+  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)} 天前`;
+  return date.toLocaleDateString("zh-CN");
 }
 
 export default function PostDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { token, user } = useAuth();
+  const toast = useToast();
+
   const [post, setPost] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [commentText, setCommentText] = useState("");
-  const [msg, setMsg] = useState("");
-  const [showShare, setShowShare] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: number; nickname: string } | null>(null);
+  const [activeImage, setActiveImage] = useState(0);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const load = async () => {
-    try {
-      const r = await api.postDetail(Number(id));
-      setPost(r.post);
-    } catch (e: any) {
-      setMsg(e.message);
-    }
-  };
+  const postId = Number(id);
 
-  const loadComments = async () => {
+  const loadPost = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const r = await api.listComments(Number(id));
-      setComments(r.items || []);
-    } catch (e: any) {
-      console.error(e);
+      const result = await api.postDetail(postId);
+      setPost(result.post);
+    } catch (err: any) {
+      setError(err?.message || "笔记加载失败");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [postId]);
+
+  const loadComments = useCallback(async () => {
+    try {
+      const result = await api.listComments(postId);
+      setComments(result.items || []);
+    } catch {
+      setComments([]);
+    }
+  }, [postId]);
 
   useEffect(() => {
-    load();
+    loadPost();
     loadComments();
-  }, [id]);
+    setActiveImage(0);
+  }, [loadPost, loadComments]);
 
-  const needLogin = () => {
+  const requireLogin = () => {
     if (!token) {
-      navigate("/login");
+      toast("登录后即可操作", "error");
+      navigate("/login?redirect=/post/" + postId);
       return true;
     }
     return false;
   };
 
+  const patchPost = (patch: Record<string, any>) => setPost((prev: any) => (prev ? { ...prev, ...patch } : prev));
+
   const toggleLike = async () => {
-    if (needLogin()) return;
+    if (requireLogin()) return;
+    const next = !post.is_liked;
+    patchPost({ is_liked: next, like_count: Math.max(0, post.like_count + (next ? 1 : -1)) });
     try {
-      if (post.is_liked) await api.unlike(post.id);
-      else await api.like(post.id);
-      load();
-    } catch (e: any) {
-      setMsg(e.message);
+      if (next) await api.like(post.id);
+      else await api.unlike(post.id);
+    } catch (err: any) {
+      patchPost({ is_liked: !next, like_count: post.like_count });
+      toast(err?.message || "操作失败", "error");
     }
   };
 
   const toggleFavorite = async () => {
-    if (needLogin()) return;
+    if (requireLogin()) return;
+    const next = !post.is_favorited;
+    patchPost({ is_favorited: next, favorite_count: Math.max(0, (post.favorite_count || 0) + (next ? 1 : -1)) });
     try {
-      if (post.is_favorited) await api.unfavorite(post.id);
-      else await api.favorite(post.id);
-      load();
-    } catch (e: any) {
-      setMsg(e.message);
+      if (next) await api.favorite(post.id);
+      else await api.unfavorite(post.id);
+      toast(next ? "已收藏" : "已取消收藏");
+    } catch (err: any) {
+      patchPost({ is_favorited: !next, favorite_count: post.favorite_count });
+      toast(err?.message || "操作失败", "error");
     }
   };
 
   const toggleFollow = async () => {
-    if (needLogin()) return;
+    if (requireLogin()) return;
+    const next = !post.is_following;
+    patchPost({ is_following: next });
     try {
-      if (post.is_following) await api.unfollow(post.author.id);
-      else await api.follow(post.author.id);
-      load();
-    } catch (e: any) {
-      setMsg(e.message);
+      if (next) await api.follow(post.author.id);
+      else await api.unfollow(post.author.id);
+    } catch (err: any) {
+      patchPost({ is_following: !next });
+      toast(err?.message || "操作失败", "error");
     }
-  };
-
-  const deletePost = async () => {
-    if (!window.confirm("确定删除这篇笔记吗？")) return;
-    try {
-      await api.deletePost(post.id);
-      navigate("/");
-    } catch (e: any) {
-      setMsg(e.message);
-    }
-  };
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setMsg("链接已复制，去分享吧");
-    } catch (e) {
-      setMsg("复制失败");
-    }
-    setShowShare(false);
-  };
-
-  const saveImage = async () => {
-    const url = post.image_urls && post.image_urls[0];
-    if (!url) return;
-    try {
-      const resp = await fetch(url);
-      const blob = await resp.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "cover.jpg";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch (e) {
-      setMsg("保存失败");
-    }
-    setShowShare(false);
   };
 
   const submitComment = async () => {
-    const c = commentText.trim();
-    if (!c) return;
-    if (needLogin()) return;
+    const content = commentText.trim();
+    if (!content) return;
+    if (requireLogin()) return;
+    setSubmitting(true);
     try {
-      await api.createComment(Number(id), c, replyingTo?.id || 0);
+      await api.createComment(postId, content, replyingTo?.id || 0);
       setCommentText("");
       setReplyingTo(null);
-      loadComments();
-    } catch (e: any) {
-      setMsg(e.message);
+      await loadComments();
+      patchPost({ comment_count: (post.comment_count || 0) + 1 });
+      toast("评论已发布");
+    } catch (err: any) {
+      toast(err?.message || "评论失败", "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  if (!post) {
-    return <div className="empty">{msg || "加载中..."}</div>;
-  }
+  const removePost = async () => {
+    if (!window.confirm("确定删除这篇笔记吗？删除后不可恢复")) return;
+    try {
+      await api.deletePost(postId);
+      toast("笔记已删除");
+      navigate("/");
+    } catch (err: any) {
+      toast(err?.message || "删除失败", "error");
+    }
+  };
 
-  const isSelf = user && user.id === post.author.id;
-  const topLevel = comments.filter((c) => c.parent_id === 0);
-  const repliesOf = (pid: number) => comments.filter((c) => c.parent_id === pid);
-  const renderComment = (c: CommentItem, depth: number): any => (
-    <div key={c.id}>
+  const share = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast("链接已复制");
+    } catch {
+      toast("复制失败，请手动复制地址栏链接", "error");
+    }
+    setShareOpen(false);
+  };
+
+  const imageList: string[] = post?.image_urls?.length ? post.image_urls : post?.cover_image_url ? [post.cover_image_url] : [];
+  const isSelf = Boolean(user && post && user.id === post.author?.id);
+
+  const tree = useMemo(() => {
+    const top = comments.filter((comment) => !comment.parent_id);
+    const replies = (parentId: number) => comments.filter((comment) => comment.parent_id === parentId);
+    return { top, replies };
+  }, [comments]);
+
+  const renderComment = (comment: CommentItem, depth: number) => (
+    <div key={comment.id}>
       <div className={depth > 0 ? "comment-item reply" : "comment-item"}>
-        <div className="avatar">{(c.author?.nickname || "U").charAt(0)}</div>
+        <Avatar src={comment.author?.avatar_url} name={comment.author?.nickname} size="sm" />
         <div className="comment-main">
-          <span className="nickname">{c.author?.nickname}</span>
-          {c.reply_to_name && <span className="reply-to"> 回复 @{c.reply_to_name}</span>}
-          <p>{c.content}</p>
-          <button className="reply-btn" onClick={() => setReplyingTo({ id: c.id, nickname: c.author.nickname })}>回复</button>
+          <div className="comment-top">
+            <b>{comment.author?.nickname}</b>
+            {comment.reply_to_name ? <span>回复 @{comment.reply_to_name}</span> : null}
+            <span>·</span>
+            <span>{timeAgo(comment.created_at)}</span>
+          </div>
+          <p className="comment-text">{comment.content}</p>
+          <div className="comment-actions">
+            <button
+              type="button"
+              onClick={() => setReplyingTo({ id: comment.id, nickname: comment.author?.nickname || "" })}
+            >
+              回复
+            </button>
+          </div>
         </div>
       </div>
-      {repliesOf(c.id).map((r) => renderComment(r, depth + 1))}
+      {tree.replies(comment.id).map((reply) => renderComment(reply, depth + 1))}
     </div>
   );
 
   return (
-    <div className="detail-page">
-      <header className="topbar detail-topbar">
-        <button className="back" onClick={() => navigate(-1)}>←</button>
-        <div className="detail-author" onClick={() => navigate("/user/" + post.author.id)}>
-          <div className="avatar">{(post.author?.nickname || "U").charAt(0)}</div>
-          <span className="nickname">{post.author?.nickname}</span>
-        </div>
-        {!isSelf && (
-          <button className={post.is_following ? "follow-btn following" : "follow-btn"} onClick={toggleFollow}>
-            {post.is_following ? "已关注" : "+ 关注"}
-          </button>
-        )}
-        <button className="share-btn" onClick={() => setShowShare(true)}>分享</button>
-      </header>
-      <div className="detail-images">
-        {(post.image_urls || []).map((u: string) => (
-          <img key={u} src={u} alt="" />
-        ))}
-      </div>
-      <div className="detail-body">
-        <h2>{post.title}</h2>
-        {post.topics && post.topics.length > 0 && (
-          <div className="topic-tags">
-            {post.topics.map((t: string) => (
-              <span className="topic-tag" key={t}>#{t}</span>
-            ))}
+    <AppShell>
+      {loading ? (
+        <PageLoading text="正在打开笔记…" />
+      ) : error || !post ? (
+        <ErrorState message={error || "笔记不存在"} onRetry={loadPost} />
+      ) : (
+        <div className="detail-wrap fade-up">
+          <div className="detail-media">
+            {imageList.length > 0 ? (
+              <img src={imageList[activeImage]} alt={post.title} />
+            ) : (
+              <div className="post-cover-skeleton" style={{ borderRadius: 16 }} />
+            )}
+            {imageList.length > 1 ? (
+              <div className="detail-media-dots">
+                {imageList.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    aria-label={`第 ${index + 1} 张`}
+                    onClick={() => setActiveImage(index)}
+                    style={{
+                      width: index === activeImage ? 18 : 6,
+                      height: 6,
+                      borderRadius: 999,
+                      background: index === activeImage ? "var(--brand-500)" : "var(--border-strong)",
+                      transition: "all .2s",
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
-        )}
-        <p className="content">{post.content}</p>
-        <div className="action-row">
-          <button className={post.is_liked ? "like-btn liked" : "like-btn"} onClick={toggleLike}>
-            {post.is_liked ? "❤ 已赞" : "🤍 点赞"} {post.like_count}
-          </button>
-          <button className={post.is_favorited ? "like-btn liked" : "like-btn"} onClick={toggleFavorite}>
-            {post.is_favorited ? "★ 已收藏" : "☆ 收藏"} {post.favorite_count}
-          </button>
-        </div>
-        {isSelf && (
-          <div className="action-row">
-            <button className="like-btn" onClick={() => navigate("/edit/" + post.id)}>编辑</button>
-            <button className="like-btn" onClick={deletePost}>删除</button>
-          </div>
-        )}
-        {msg && <p className="msg">{msg}</p>}
-      </div>
-      <div className="comments">
-        <h3>评论 {comments.length}</h3>
-        <div className="comment-input">
-          <input
-            placeholder={replyingTo ? "回复 @" + replyingTo.nickname + "：" : token ? "说点什么..." : "登录后评论"}
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submitComment();
-            }}
-          />
-          <button className="primary small" onClick={submitComment}>发送</button>
-        </div>
-        {replyingTo && (
-          <p className="cancel-reply" onClick={() => setReplyingTo(null)}>取消回复</p>
-        )}
-        {comments.length === 0 ? (
-          <p className="empty">还没有评论</p>
-        ) : (
-          topLevel.map((c) => renderComment(c, 0))
-        )}
-      </div>
-      {showShare && (
-        <div className="share-overlay" onClick={() => setShowShare(false)}>
-          <div className="share-sheet" onClick={(e) => e.stopPropagation()}>
-            <button onClick={copyLink}>复制链接</button>
-            <button onClick={saveImage}>保存封面图</button>
-            <button className="cancel" onClick={() => setShowShare(false)}>取消</button>
+
+          <div className="detail-panel">
+            <div className="detail-author">
+              <Avatar
+                src={post.author?.avatar_url}
+                name={post.author?.nickname}
+                size="md"
+                className="avatar-clickable"
+              />
+              <div style={{ minWidth: 0 }}>
+                <div className="detail-author-name" onClick={() => navigate(`/user/${post.author.id}`)}>
+                  {post.author?.nickname}
+                </div>
+                <div className="detail-meta-line">{timeAgo(post.created_at)}</div>
+              </div>
+              <span className="spacer" />
+              {!isSelf ? (
+                <button
+                  type="button"
+                  className={post.is_following ? "btn btn-ghost btn-sm" : "btn btn-soft btn-sm"}
+                  onClick={toggleFollow}
+                >
+                  {post.is_following ? "已关注" : "+ 关注"}
+                </button>
+              ) : null}
+              <button type="button" className="icon-btn" onClick={() => setMenuOpen(true)} aria-label="更多操作">
+                <Icon name="more" size={20} />
+              </button>
+            </div>
+
+            <h1 className="detail-title">{post.title}</h1>
+
+            {post.topics?.length ? (
+              <div className="detail-topics">
+                {post.topics.map((topic: string) => (
+                  <button
+                    key={topic}
+                    type="button"
+                    className="tag"
+                    onClick={() => navigate(`/search?q=${encodeURIComponent(topic)}`)}
+                  >
+                    #{topic}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {post.content ? <p className="detail-content">{post.content}</p> : null}
+
+            <div className="detail-actions">
+              <button type="button" className={post.is_liked ? "action-pill liked" : "action-pill"} onClick={toggleLike}>
+                <Icon name="heart" size={17} />
+                {post.like_count || 0}
+              </button>
+              <button
+                type="button"
+                className={post.is_favorited ? "action-pill faved" : "action-pill"}
+                onClick={toggleFavorite}
+              >
+                <Icon name="star" size={17} />
+                {post.favorite_count || 0}
+              </button>
+              <button
+                type="button"
+                className="action-pill"
+                onClick={() => document.getElementById("comments")?.scrollIntoView({ behavior: "smooth" })}
+              >
+                <Icon name="comment" size={17} />
+                {post.comment_count || 0}
+              </button>
+              <span className="spacer" />
+              <button type="button" className="action-pill icon-only" onClick={() => setShareOpen(true)} aria-label="分享">
+                <Icon name="share" size={17} />
+              </button>
+            </div>
+
+            <div className="comments-block" id="comments">
+              <div className="comments-head">
+                评论 <span>{comments.length}</span>
+              </div>
+
+              <div className="comment-compose">
+                <input
+                  className="input"
+                  value={commentText}
+                  onChange={(event) => setCommentText(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) submitComment();
+                  }}
+                  placeholder={replyingTo ? `回复 @${replyingTo.nickname}…` : token ? "说点什么…" : "登录后参与评论"}
+                  onFocus={() => {
+                    if (!token) requireLogin();
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={submitComment}
+                  disabled={!commentText.trim() || submitting}
+                >
+                  {submitting ? "发送中" : "发送"}
+                </button>
+              </div>
+              {replyingTo ? (
+                <button type="button" className="cancel-reply" onClick={() => setReplyingTo(null)}>
+                  取消回复
+                </button>
+              ) : null}
+
+              {comments.length === 0 ? (
+                <EmptyState icon="comment" title="还没有评论" description="来说点什么都好" />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {tree.top.map((comment) => renderComment(comment, 0))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
-    </div>
+
+      {menuOpen ? (
+        <div className="sheet-overlay" onClick={() => setMenuOpen(false)}>
+          <div className="sheet" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="sheet-item" onClick={() => { setMenuOpen(false); setShareOpen(true); }}>
+              分享笔记
+            </button>
+            {isSelf ? (
+              <>
+                <button type="button" className="sheet-item" onClick={() => navigate(`/edit/${post.id}`)}>
+                  编辑笔记
+                </button>
+                <button type="button" className="sheet-item danger" onClick={removePost}>
+                  删除笔记
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="sheet-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate(`/user/${post.author.id}`);
+                }}
+              >
+                查看作者主页
+              </button>
+            )}
+            <button type="button" className="sheet-cancel" onClick={() => setMenuOpen(false)}>
+              取消
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {shareOpen ? (
+        <div className="sheet-overlay" onClick={() => setShareOpen(false)}>
+          <div className="sheet" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="sheet-item" onClick={share}>
+              复制链接
+            </button>
+            <button type="button" className="sheet-cancel" onClick={() => setShareOpen(false)}>
+              取消
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </AppShell>
   );
 }

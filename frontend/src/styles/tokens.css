@@ -1,0 +1,226 @@
+/* ==========================================================================
+   The Blue Book · Design Tokens & Base
+   ========================================================================== */
+
+:root {
+  /* brand */
+  --brand-50: #eef4ff;
+  --brand-100: #dbe7ff;
+  --brand-200: #c0d4ff;
+  --brand-400: #5b8cff;
+  --brand-500: #2f6bff;
+  --brand-600: #1f56e8;
+  --brand-700: #1843bd;
+  --brand-ink: #12275c;
+
+  /* semantic */
+  --like: #ff3b5c;
+  --like-soft: #fff0f3;
+  --star: #ffb020;
+  --success: #12b886;
+  --danger: #f0453a;
+
+  /* text */
+  --text-1: #16181d;
+  --text-2: #4a515f;
+  --text-3: #858d9d;
+  --text-4: #b3b9c6;
+
+  /* surface */
+  --bg: #ffffff;
+  --bg-page: #f7f8fa;
+  --bg-soft: #f2f3f5;
+  --bg-hover: #f5f6f8;
+  --border: #ebedf0;
+  --border-strong: #dfe2e8;
+
+  /* radius */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-2xl: 28px;
+  --r-pill: 999px;
+
+  /* shadow */
+  --shadow-xs: 0 1px 2px rgba(20, 26, 40, 0.04);
+  --shadow-sm: 0 2px 8px rgba(20, 26, 40, 0.06);
+  --shadow-md: 0 6px 24px rgba(20, 26, 40, 0.08);
+  --shadow-lg: 0 18px 48px rgba(20, 26, 40, 0.12);
+
+  /* layout */
+  --sidebar-w: 212px;
+  --content-max: 1280px;
+  --gap: 16px;
+
+  /* motion */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur: 0.22s;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text-1);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  line-height: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  border: 0;
+  outline: none;
+  background: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--brand-100);
+  color: var(--brand-ink);
+}
+
+/* scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d8dce4 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #dcdfe6;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #c6cad4;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---- small utilities ---- */
+.muted {
+  color: var(--text-3);
+}
+.text-2 {
+  color: var(--text-2);
+}
+.clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.divider {
+  height: 1px;
+  background: var(--border);
+  border: 0;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* generic fade-in used by page transitions */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: fade-up 0.32s var(--ease) both;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -420px 0;
+  }
+  100% {
+    background-position: 420px 0;
+  }
+}
