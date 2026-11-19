@@ -72,6 +72,33 @@ input:focus, textarea:focus {
   padding: 0 4px;
 }
 
+.detail-author {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.follow-btn {
+  background: #ff2442;
+  color: #fff;
+  padding: 5px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+}
+
+.follow-btn.following {
+  background: #f2f2f2;
+  color: #666;
+}
+
+.share-btn {
+  color: #333;
+  font-size: 14px;
+  padding: 5px 8px;
+}
+
 .sort-tabs {
   display: flex;
   gap: 16px;

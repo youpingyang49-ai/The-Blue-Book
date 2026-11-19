@@ -12,7 +12,7 @@ interface CommentItem {
 export default function PostDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const token = useAuth((s) => s.token);
+  const { token, user } = useAuth();
   const [post, setPost] = useState<any>(null);
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [commentText, setCommentText] = useState("");
@@ -71,6 +71,26 @@ export default function PostDetail() {
     }
   };
 
+  const toggleFollow = async () => {
+    if (needLogin()) return;
+    try {
+      if (post.is_following) await api.unfollow(post.author.id);
+      else await api.follow(post.author.id);
+      load();
+    } catch (e: any) {
+      setMsg(e.message);
+    }
+  };
+
+  const share = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setMsg("链接已复制，去分享吧");
+    } catch (e) {
+      setMsg("复制失败");
+    }
+  };
+
   const submitComment = async () => {
     const c = commentText.trim();
     if (!c) return;
@@ -88,11 +108,22 @@ export default function PostDetail() {
     return <div className="empty">{msg || "加载中..."}</div>;
   }
 
+  const isSelf = user && user.id === post.author.id;
+
   return (
     <div className="detail-page">
-      <header className="topbar">
+      <header className="topbar detail-topbar">
         <button className="back" onClick={() => navigate(-1)}>←</button>
-        <span className="title">笔记详情</span>
+        <div className="detail-author">
+          <div className="avatar">{(post.author?.nickname || "U").charAt(0)}</div>
+          <span className="nickname">{post.author?.nickname}</span>
+        </div>
+        {!isSelf && (
+          <button className={post.is_following ? "follow-btn following" : "follow-btn"} onClick={toggleFollow}>
+            {post.is_following ? "已关注" : "+ 关注"}
+          </button>
+        )}
+        <button className="share-btn" onClick={share}>分享</button>
       </header>
       <div className="detail-images">
         {(post.image_urls || []).map((u: string) => (
@@ -102,10 +133,6 @@ export default function PostDetail() {
       <div className="detail-body">
         <h2>{post.title}</h2>
         <p className="content">{post.content}</p>
-        <div className="author-row">
-          <div className="avatar">{(post.author?.nickname || "U").charAt(0)}</div>
-          <span>{post.author?.nickname}</span>
-        </div>
         <div className="action-row">
           <button className={post.is_liked ? "like-btn liked" : "like-btn"} onClick={toggleLike}>
             {post.is_liked ? "❤ 已赞" : "🤍 点赞"} {post.like_count}

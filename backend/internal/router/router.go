@@ -23,14 +23,19 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 	authHandler := handler.NewAuthHandler(authSvc, appEnv)
 	userHandler := handler.NewUserHandler(userRepo)
 
+	followRepo := repository.NewFollowRepo(db)
+
 	postRepo := repository.NewPostRepo(db)
-	postSvc := service.NewPostService(postRepo, st)
+	postSvc := service.NewPostService(postRepo, followRepo, st)
 	postHandler := handler.NewPostHandler(postSvc)
 	uploadHandler := handler.NewUploadHandler(st)
 
 	commentRepo := repository.NewCommentRepo(db)
 	commentSvc := service.NewCommentService(commentRepo)
 	commentHandler := handler.NewCommentHandler(commentSvc)
+
+	followSvc := service.NewFollowService(followRepo)
+	followHandler := handler.NewFollowHandler(followSvc)
 
 	api := r.Group("/api/v1")
 	{
@@ -61,6 +66,8 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 			protected.POST("/posts/:id/favorite", postHandler.Favorite)
 			protected.DELETE("/posts/:id/favorite", postHandler.Unfavorite)
 			protected.POST("/posts/:id/comments", commentHandler.Create)
+			protected.POST("/users/:id/follow", followHandler.Follow)
+			protected.DELETE("/users/:id/follow", followHandler.Unfollow)
 		}
 	}
 

@@ -51,4 +51,6 @@ export const api = {
   unfavorite: (id: number) => request("/posts/" + id + "/favorite", { method: "DELETE" }),
   listComments: (id: number, page = 1) => request("/posts/" + id + "/comments?page=" + page + "&page_size=20"),
   createComment: (id: number, content: string) => request("/posts/" + id + "/comments", { method: "POST", body: JSON.stringify({ content }) }),
+  follow: (id: number) => request("/users/" + id + "/follow", { method: "POST" }),
+  unfollow: (id: number) => request("/users/" + id + "/follow", { method: "DELETE" }),
 };

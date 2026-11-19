@@ -13,12 +13,13 @@ import (
 var ErrPostNotFound = errors.New("帖子不存在")
 
 type PostService struct {
-	postRepo *repository.PostRepo
-	storage  storage.Storage
+	postRepo   *repository.PostRepo
+	followRepo *repository.FollowRepo
+	storage    storage.Storage
 }
 
-func NewPostService(postRepo *repository.PostRepo, st storage.Storage) *PostService {
-	return &PostService{postRepo: postRepo, storage: st}
+func NewPostService(postRepo *repository.PostRepo, followRepo *repository.FollowRepo, st storage.Storage) *PostService {
+	return &PostService{postRepo: postRepo, followRepo: followRepo, storage: st}
 }
 
 type AuthorDTO struct {
@@ -35,8 +36,10 @@ type PostDTO struct {
 	ImageURLs     []string  `json:"image_urls,omitempty"`
 	LikeCount     int64     `json:"like_count"`
 	FavoriteCount int64     `json:"favorite_count"`
+	CommentCount  int64     `json:"comment_count"`
 	IsLiked       bool      `json:"is_liked"`
 	IsFavorited   bool      `json:"is_favorited"`
+	IsFollowing   bool      `json:"is_following"`
 	Author        AuthorDTO `json:"author"`
 	CreatedAt     time.Time `json:"created_at"`
 }
@@ -78,6 +81,7 @@ func (s *PostService) buildDTOs(ctx context.Context, posts []model.Post, viewerI
 			Title:         p.Title,
 			LikeCount:     p.LikeCount,
 			FavoriteCount: p.FavoriteCount,
+			CommentCount:  p.CommentCount,
 			CreatedAt:     p.CreatedAt,
 			Author: AuthorDTO{
 				ID:       p.User.ID,
@@ -152,6 +156,7 @@ func (s *PostService) Detail(ctx context.Context, postID, viewerID uint) (*PostD
 		Content:       post.Content,
 		LikeCount:     post.LikeCount,
 		FavoriteCount: post.FavoriteCount,
+		CommentCount:  post.CommentCount,
 		CreatedAt:     post.CreatedAt,
 		Author: AuthorDTO{
 			ID:       post.User.ID,
@@ -171,6 +176,8 @@ func (s *PostService) Detail(ctx context.Context, postID, viewerID uint) (*PostD
 		dto.IsLiked = liked[postID]
 		faved, _ := s.postRepo.FavoritedPostIDs(viewerID, []uint{postID})
 		dto.IsFavorited = faved[postID]
+		following, _ := s.followRepo.IsFollowing(viewerID, post.UserID)
+		dto.IsFollowing = following
 	}
 	return &dto, nil
 }
