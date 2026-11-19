@@ -63,6 +63,9 @@ export const api = {
   conversations: () => request("/conversations"),
   conversation: (id: number) => request("/messages/" + id),
   sendMessage: (id: number, content: string) => request("/messages/" + id, { method: "POST", body: JSON.stringify({ content }) }),
+  markConversationUnread: (id: number) => request("/messages/" + id + "/unread", { method: "POST" }),
+  deleteConversation: (id: number) => request("/messages/" + id, { method: "DELETE" }),
+  hideConversation: (id: number) => request("/conversations/" + id + "/hide", { method: "POST" }),
   unreadCount: () => request("/notifications/unread-count"),
   markNotificationsRead: () => request("/notifications/read", { method: "POST" }),
 };

@@ -308,6 +308,13 @@ input:focus, textarea:focus {
   margin-bottom: 0;
 }
 
+.more-btn {
+  color: #999;
+  font-size: 18px;
+  padding: 0 6px;
+  align-self: center;
+}
+
 .sort-tabs {
   display: flex;
   gap: 16px;

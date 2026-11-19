@@ -16,6 +16,7 @@ export default function Chat() {
   const { user } = useAuth();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
+  const [showAction, setShowAction] = useState(false);
 
   const load = async () => {
     try {
@@ -42,11 +43,26 @@ export default function Chat() {
     }
   };
 
+  const clearChat = async () => {
+    if (!window.confirm("确定清空聊天记录吗？")) {
+      setShowAction(false);
+      return;
+    }
+    try {
+      await api.deleteConversation(Number(id));
+      setShowAction(false);
+      navigate("/notifications");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
     <div className="chat-page">
       <header className="topbar">
         <button className="back" onClick={() => navigate(-1)}>←</button>
         <span className="title">私信</span>
+        <button className="share-btn" onClick={() => setShowAction(true)}>⋯</button>
       </header>
       <div className="chat-list">
         {msgs.map((m) => (
@@ -66,6 +82,14 @@ export default function Chat() {
         />
         <button className="primary small" onClick={send}>发送</button>
       </div>
+      {showAction && (
+        <div className="share-overlay" onClick={() => setShowAction(false)}>
+          <div className="share-sheet" onClick={(e) => e.stopPropagation()}>
+            <button onClick={clearChat}>清空聊天记录</button>
+            <button className="cancel" onClick={() => setShowAction(false)}>取消</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

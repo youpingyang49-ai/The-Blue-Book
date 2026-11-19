@@ -56,6 +56,48 @@ func (h *MessageHandler) Conversation(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": dtos})
 }
 
+func (h *MessageHandler) MarkUnread(c *gin.Context) {
+	userID := c.GetUint("userID")
+	otherID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if err := h.message.MarkUnread(c.Request.Context(), userID, uint(otherID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "操作失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "已标记为未读"})
+}
+
+func (h *MessageHandler) Delete(c *gin.Context) {
+	userID := c.GetUint("userID")
+	otherID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if err := h.message.DeleteConversation(c.Request.Context(), userID, uint(otherID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "已删除"})
+}
+
+func (h *MessageHandler) Hide(c *gin.Context) {
+	userID := c.GetUint("userID")
+	otherID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if err := h.message.HideConversation(c.Request.Context(), userID, uint(otherID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "操作失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "已隐藏"})
+}
+
 func (h *MessageHandler) Conversations(c *gin.Context) {
 	userID := c.GetUint("userID")
 	dtos, err := h.message.Conversations(c.Request.Context(), userID)

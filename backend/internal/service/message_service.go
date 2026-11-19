@@ -34,6 +34,18 @@ type ConversationDTO struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+func (s *MessageService) MarkUnread(ctx context.Context, userID, otherID uint) error {
+	return s.messageRepo.MarkUnread(userID, otherID)
+}
+
+func (s *MessageService) DeleteConversation(ctx context.Context, userID, otherID uint) error {
+	return s.messageRepo.DeleteConversation(userID, otherID)
+}
+
+func (s *MessageService) HideConversation(ctx context.Context, userID, otherID uint) error {
+	return s.messageRepo.HideConversation(userID, otherID)
+}
+
 func (s *MessageService) Send(ctx context.Context, fromUserID, toUserID uint, content string) (*MessageDTO, error) {
 	msg := &model.Message{FromUserID: fromUserID, ToUserID: toUserID, Content: content}
 	if err := s.messageRepo.Create(msg); err != nil {
@@ -89,8 +101,16 @@ func (s *MessageService) Conversations(ctx context.Context, userID uint) ([]Conv
 			c.unread++
 		}
 	}
+	hidden, _ := s.messageRepo.HiddenOtherIDs(userID)
+	hiddenSet := make(map[uint]bool, len(hidden))
+	for _, id := range hidden {
+		hiddenSet[id] = true
+	}
 	dtos := make([]ConversationDTO, 0, len(order))
 	for _, id := range order {
+		if hiddenSet[id] {
+			continue
+		}
 		c := m[id]
 		dtos = append(dtos, ConversationDTO{
 			UserID:      c.user.ID,

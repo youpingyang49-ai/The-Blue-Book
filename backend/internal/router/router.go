@@ -88,6 +88,9 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 			protected.GET("/conversations", messageHandler.Conversations)
 			protected.GET("/messages/:id", messageHandler.Conversation)
 			protected.POST("/messages/:id", messageHandler.Send)
+			protected.POST("/messages/:id/unread", messageHandler.MarkUnread)
+			protected.DELETE("/messages/:id", messageHandler.Delete)
+			protected.POST("/conversations/:id/hide", messageHandler.Hide)
 		}
 	}
 

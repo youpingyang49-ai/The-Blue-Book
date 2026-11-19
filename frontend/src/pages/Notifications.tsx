@@ -40,6 +40,7 @@ export default function Notifications() {
   const [notifs, setNotifs] = useState<NotifItem[]>([]);
   const [convs, setConvs] = useState<ConvItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionConv, setActionConv] = useState<ConvItem | null>(null);
 
   const loadNotifs = async (type: string) => {
     setLoading(true);
@@ -88,6 +89,43 @@ export default function Notifications() {
     if (n.post_id) navigate("/post/" + n.post_id);
   };
 
+  const markConvUnread = async () => {
+    if (!actionConv) return;
+    try {
+      await api.markConversationUnread(actionConv.user_id);
+      setActionConv(null);
+      loadConvs();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const hideConv = async () => {
+    if (!actionConv) return;
+    try {
+      await api.hideConversation(actionConv.user_id);
+      setActionConv(null);
+      loadConvs();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const deleteConv = async () => {
+    if (!actionConv) return;
+    if (!window.confirm("确定删除该会话吗？")) {
+      setActionConv(null);
+      return;
+    }
+    try {
+      await api.deleteConversation(actionConv.user_id);
+      setActionConv(null);
+      loadConvs();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
     <div className="notif-page">
       <header className="topbar">
@@ -119,6 +157,15 @@ export default function Notifications() {
                   </p>
                   <p className="notif-content">{c.last_message}</p>
                 </div>
+                <button
+                  className="more-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActionConv(c);
+                  }}
+                >
+                  ⋯
+                </button>
               </div>
             ))}
           </div>
@@ -138,6 +185,16 @@ export default function Notifications() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {actionConv && (
+        <div className="share-overlay" onClick={() => setActionConv(null)}>
+          <div className="share-sheet" onClick={(e) => e.stopPropagation()}>
+            <button onClick={markConvUnread}>标为未读</button>
+            <button onClick={hideConv}>不显示</button>
+            <button onClick={deleteConv}>删除</button>
+            <button className="cancel" onClick={() => setActionConv(null)}>取消</button>
+          </div>
         </div>
       )}
     </div>

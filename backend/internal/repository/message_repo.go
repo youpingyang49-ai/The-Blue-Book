@@ -47,3 +47,31 @@ func (r *MessageRepo) MarkRead(userID, otherID uint) error {
 		Where("from_user_id = ? AND to_user_id = ? AND is_read = ?", otherID, userID, false).
 		Update("is_read", true).Error
 }
+
+func (r *MessageRepo) MarkUnread(userID, otherID uint) error {
+	return r.db.Model(&model.Message{}).
+		Where("from_user_id = ? AND to_user_id = ? AND is_read = ?", otherID, userID, true).
+		Update("is_read", false).Error
+}
+
+func (r *MessageRepo) DeleteConversation(userID, otherID uint) error {
+	return r.db.Where("(from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?)", userID, otherID, otherID, userID).
+		Delete(&model.Message{}).Error
+}
+
+func (r *MessageRepo) HideConversation(userID, otherID uint) error {
+	h := model.ConversationHide{UserID: userID, OtherID: otherID}
+	return r.db.Where("user_id = ? AND other_id = ?", userID, otherID).FirstOrCreate(&h).Error
+}
+
+func (r *MessageRepo) HiddenOtherIDs(userID uint) ([]uint, error) {
+	var hides []model.ConversationHide
+	if err := r.db.Where("user_id = ?", userID).Find(&hides).Error; err != nil {
+		return nil, err
+	}
+	ids := make([]uint, 0, len(hides))
+	for _, h := range hides {
+		ids = append(ids, h.OtherID)
+	}
+	return ids, nil
+}
