@@ -20,11 +20,12 @@ type PostService struct {
 	postRepo   *repository.PostRepo
 	followRepo *repository.FollowRepo
 	topicRepo  *repository.TopicRepo
+	notifSvc   *NotificationService
 	storage    storage.Storage
 }
 
-func NewPostService(postRepo *repository.PostRepo, followRepo *repository.FollowRepo, topicRepo *repository.TopicRepo, st storage.Storage) *PostService {
-	return &PostService{postRepo: postRepo, followRepo: followRepo, topicRepo: topicRepo, storage: st}
+func NewPostService(postRepo *repository.PostRepo, followRepo *repository.FollowRepo, topicRepo *repository.TopicRepo, notifSvc *NotificationService, st storage.Storage) *PostService {
+	return &PostService{postRepo: postRepo, followRepo: followRepo, topicRepo: topicRepo, notifSvc: notifSvc, storage: st}
 }
 
 type AuthorDTO struct {
@@ -253,7 +254,14 @@ func (s *PostService) Detail(ctx context.Context, postID, viewerID uint) (*PostD
 }
 
 func (s *PostService) Like(ctx context.Context, userID, postID uint) (bool, error) {
-	return s.postRepo.Like(userID, postID)
+	liked, err := s.postRepo.Like(userID, postID)
+	if err != nil {
+		return false, err
+	}
+	if liked {
+		s.notifyPostAction(ctx, userID, postID, "like", "")
+	}
+	return liked, nil
 }
 
 func (s *PostService) Unlike(ctx context.Context, userID, postID uint) (bool, error) {
@@ -261,7 +269,25 @@ func (s *PostService) Unlike(ctx context.Context, userID, postID uint) (bool, er
 }
 
 func (s *PostService) Favorite(ctx context.Context, userID, postID uint) (bool, error) {
-	return s.postRepo.Favorite(userID, postID)
+	favorited, err := s.postRepo.Favorite(userID, postID)
+	if err != nil {
+		return false, err
+	}
+	if favorited {
+		s.notifyPostAction(ctx, userID, postID, "favorite", "")
+	}
+	return favorited, nil
+}
+
+func (s *PostService) notifyPostAction(ctx context.Context, actorID, postID uint, typ, content string) {
+	if s.notifSvc == nil {
+		return
+	}
+	post, err := s.postRepo.FindByID(postID)
+	if err != nil || post == nil {
+		return
+	}
+	s.notifSvc.Notify(ctx, post.UserID, actorID, typ, postID, content)
 }
 
 func (s *PostService) Unfavorite(ctx context.Context, userID, postID uint) (bool, error) {

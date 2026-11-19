@@ -31,12 +31,11 @@ func (r *CommentRepo) FindByID(id uint) (*model.Comment, error) {
 	return &comment, nil
 }
 
-func (r *CommentRepo) ListByPost(postID uint, page, pageSize int) ([]model.Comment, error) {
+func (r *CommentRepo) ListByPost(postID uint) ([]model.Comment, error) {
 	var comments []model.Comment
-	err := r.db.Where("post_id = ? AND parent_id = 0", postID).
+	err := r.db.Where("post_id = ?", postID).
 		Preload("User").
 		Order("id ASC").
-		Limit(pageSize).Offset((page - 1) * pageSize).
 		Find(&comments).Error
 	return comments, err
 }

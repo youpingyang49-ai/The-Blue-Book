@@ -8,8 +8,9 @@ import TabBar from "../components/TabBar";
 
 export default function Home() {
   const [items, setItems] = useState<PostItem[]>([]);
-  const [sort, setSort] = useState("latest");
+  const [sort, setSort] = useState("recommend");
   const [loading, setLoading] = useState(true);
+  const [unread, setUnread] = useState(0);
   const navigate = useNavigate();
   const { token } = useAuth();
 
@@ -25,9 +26,23 @@ export default function Home() {
     }
   };
 
+  const loadUnread = async () => {
+    if (!token) return;
+    try {
+      const r = await api.unreadCount();
+      setUnread(r.count || 0);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     load(sort);
   }, [sort]);
+
+  useEffect(() => {
+    loadUnread();
+  }, [token]);
 
   const needLoginForFollowing = sort === "following" && !token;
 
@@ -35,8 +50,13 @@ export default function Home() {
     <div className="home">
       <header className="topbar">
         <div className="search-box" onClick={() => navigate("/search")}>🔍 搜索笔记</div>
+        <button className="bell" onClick={() => navigate("/notifications")}>
+          🔔
+          {unread > 0 && <span className="badge">{unread > 99 ? "99+" : unread}</span>}
+        </button>
       </header>
       <div className="sort-tabs">
+        <button className={sort === "recommend" ? "active" : ""} onClick={() => setSort("recommend")}>推荐</button>
         <button className={sort === "latest" ? "active" : ""} onClick={() => setSort("latest")}>最新</button>
         <button className={sort === "hot" ? "active" : ""} onClick={() => setSort("hot")}>热门</button>
         <button className={sort === "following" ? "active" : ""} onClick={() => setSort("following")}>关注</button>

@@ -18,7 +18,8 @@ func NewCommentHandler(comment *service.CommentService) *CommentHandler {
 }
 
 type createCommentReq struct {
-	Content string `json:"content" binding:"required"`
+	Content  string `json:"content" binding:"required"`
+	ParentID uint   `json:"parent_id"`
 }
 
 func (h *CommentHandler) Create(c *gin.Context) {
@@ -33,7 +34,7 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "评论内容不能为空"})
 		return
 	}
-	dto, err := h.comment.Create(c.Request.Context(), userID, uint(postID), 0, req.Content)
+	dto, err := h.comment.Create(c.Request.Context(), userID, uint(postID), req.ParentID, req.Content)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "评论失败"})
 		return
@@ -47,18 +48,10 @@ func (h *CommentHandler) List(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 		return
 	}
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 50 {
-		pageSize = 20
-	}
-	dtos, err := h.comment.List(c.Request.Context(), uint(postID), page, pageSize)
+	dtos, err := h.comment.List(c.Request.Context(), uint(postID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": dtos, "page": page, "page_size": pageSize})
+	c.JSON(http.StatusOK, gin.H{"items": dtos})
 }

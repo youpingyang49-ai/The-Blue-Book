@@ -5,7 +5,9 @@ import { useAuth } from "../store/auth";
 
 interface CommentItem {
   id: number;
+  parent_id: number;
   content: string;
+  reply_to_name?: string;
   author: { id: number; nickname: string; avatar_url: string };
 }
 
@@ -18,6 +20,7 @@ export default function PostDetail() {
   const [commentText, setCommentText] = useState("");
   const [msg, setMsg] = useState("");
   const [showShare, setShowShare] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: number; nickname: string } | null>(null);
 
   const load = async () => {
     try {
@@ -125,8 +128,9 @@ export default function PostDetail() {
     if (!c) return;
     if (needLogin()) return;
     try {
-      await api.createComment(Number(id), c);
+      await api.createComment(Number(id), c, replyingTo?.id || 0);
       setCommentText("");
+      setReplyingTo(null);
       loadComments();
     } catch (e: any) {
       setMsg(e.message);
@@ -138,6 +142,22 @@ export default function PostDetail() {
   }
 
   const isSelf = user && user.id === post.author.id;
+  const topLevel = comments.filter((c) => c.parent_id === 0);
+  const repliesOf = (pid: number) => comments.filter((c) => c.parent_id === pid);
+  const renderComment = (c: CommentItem, depth: number): any => (
+    <div key={c.id}>
+      <div className={depth > 0 ? "comment-item reply" : "comment-item"}>
+        <div className="avatar">{(c.author?.nickname || "U").charAt(0)}</div>
+        <div className="comment-main">
+          <span className="nickname">{c.author?.nickname}</span>
+          {c.reply_to_name && <span className="reply-to"> 回复 @{c.reply_to_name}</span>}
+          <p>{c.content}</p>
+          <button className="reply-btn" onClick={() => setReplyingTo({ id: c.id, nickname: c.author.nickname })}>回复</button>
+        </div>
+      </div>
+      {repliesOf(c.id).map((r) => renderComment(r, depth + 1))}
+    </div>
+  );
 
   return (
     <div className="detail-page">
@@ -189,7 +209,7 @@ export default function PostDetail() {
         <h3>评论 {comments.length}</h3>
         <div className="comment-input">
           <input
-            placeholder={token ? "说点什么..." : "登录后评论"}
+            placeholder={replyingTo ? "回复 @" + replyingTo.nickname + "：" : token ? "说点什么..." : "登录后评论"}
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             onKeyDown={(e) => {
@@ -198,18 +218,13 @@ export default function PostDetail() {
           />
           <button className="primary small" onClick={submitComment}>发送</button>
         </div>
+        {replyingTo && (
+          <p className="cancel-reply" onClick={() => setReplyingTo(null)}>取消回复</p>
+        )}
         {comments.length === 0 ? (
           <p className="empty">还没有评论</p>
         ) : (
-          comments.map((c) => (
-            <div className="comment-item" key={c.id}>
-              <div className="avatar">{(c.author?.nickname || "U").charAt(0)}</div>
-              <div className="comment-main">
-                <span className="nickname">{c.author?.nickname}</span>
-                <p>{c.content}</p>
-              </div>
-            </div>
-          ))
+          topLevel.map((c) => renderComment(c, 0))
         )}
       </div>
       {showShare && (

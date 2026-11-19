@@ -49,6 +49,8 @@ func (r *PostRepo) List(params ListParams) ([]model.Post, error) {
 	switch params.Sort {
 	case "hot":
 		q = q.Order("like_count DESC").Order("id DESC")
+	case "recommend":
+		q = q.Order("(like_count * 3 + favorite_count * 2 + comment_count * 2) / POW(TIMESTAMPDIFF(HOUR, created_at, NOW()) + 2, 0.6) DESC").Order("id DESC")
 	default:
 		q = q.Order("id DESC")
 	}
@@ -56,6 +58,14 @@ func (r *PostRepo) List(params ListParams) ([]model.Post, error) {
 	offset := (params.Page - 1) * params.PageSize
 	err := q.Limit(params.PageSize).Offset(offset).Find(&posts).Error
 	return posts, err
+}
+
+func (r *PostRepo) FindAuthorID(postID uint) (uint, error) {
+	var post model.Post
+	if err := r.db.Select("user_id").First(&post, postID).Error; err != nil {
+		return 0, err
+	}
+	return post.UserID, nil
 }
 
 func (r *PostRepo) Like(userID, postID uint) (bool, error) {

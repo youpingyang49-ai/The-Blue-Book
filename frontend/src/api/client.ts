@@ -53,9 +53,13 @@ export const api = {
   favorite: (id: number) => request("/posts/" + id + "/favorite", { method: "POST" }),
   unfavorite: (id: number) => request("/posts/" + id + "/favorite", { method: "DELETE" }),
   listComments: (id: number, page = 1) => request("/posts/" + id + "/comments?page=" + page + "&page_size=20"),
-  createComment: (id: number, content: string) => request("/posts/" + id + "/comments", { method: "POST", body: JSON.stringify({ content }) }),
+  createComment: (id: number, content: string, parentId = 0) =>
+    request("/posts/" + id + "/comments", { method: "POST", body: JSON.stringify({ content, parent_id: parentId }) }),
   follow: (id: number) => request("/users/" + id + "/follow", { method: "POST" }),
   unfollow: (id: number) => request("/users/" + id + "/follow", { method: "DELETE" }),
   getUser: (id: number) => request("/users/" + id),
   userPosts: (id: number, page = 1) => request("/users/" + id + "/posts?page=" + page + "&page_size=20"),
+  notifications: (page = 1) => request("/notifications?page=" + page + "&page_size=20"),
+  unreadCount: () => request("/notifications/unread-count"),
+  markNotificationsRead: () => request("/notifications/read", { method: "POST" }),
 };

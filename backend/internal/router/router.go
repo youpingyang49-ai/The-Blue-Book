@@ -22,6 +22,8 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 	userRepo := repository.NewUserRepo(db)
 	followRepo := repository.NewFollowRepo(db)
 	topicRepo := repository.NewTopicRepo(db)
+	notifRepo := repository.NewNotificationRepo(db)
+	notifSvc := service.NewNotificationService(notifRepo)
 	userSvc := service.NewUserService(userRepo, followRepo)
 
 	authSvc := service.NewAuthService(userRepo, rdb, jwtMgr)
@@ -29,16 +31,17 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 	userHandler := handler.NewUserHandler(userRepo, userSvc)
 
 	postRepo := repository.NewPostRepo(db)
-	postSvc := service.NewPostService(postRepo, followRepo, topicRepo, st)
+	postSvc := service.NewPostService(postRepo, followRepo, topicRepo, notifSvc, st)
 	postHandler := handler.NewPostHandler(postSvc)
 	uploadHandler := handler.NewUploadHandler(st)
 
 	commentRepo := repository.NewCommentRepo(db)
-	commentSvc := service.NewCommentService(commentRepo)
+	commentSvc := service.NewCommentService(commentRepo, postRepo, notifSvc)
 	commentHandler := handler.NewCommentHandler(commentSvc)
 
-	followSvc := service.NewFollowService(followRepo)
+	followSvc := service.NewFollowService(followRepo, notifSvc)
 	followHandler := handler.NewFollowHandler(followSvc)
+	notifHandler := handler.NewNotificationHandler(notifSvc)
 
 	api := r.Group("/api/v1")
 	{
@@ -75,6 +78,9 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 			protected.POST("/posts/:id/comments", commentHandler.Create)
 			protected.POST("/users/:id/follow", followHandler.Follow)
 			protected.DELETE("/users/:id/follow", followHandler.Unfollow)
+			protected.GET("/notifications", notifHandler.List)
+			protected.GET("/notifications/unread-count", notifHandler.UnreadCount)
+			protected.POST("/notifications/read", notifHandler.MarkAllRead)
 		}
 	}
 
