@@ -59,7 +59,10 @@ export const api = {
   unfollow: (id: number) => request("/users/" + id + "/follow", { method: "DELETE" }),
   getUser: (id: number) => request("/users/" + id),
   userPosts: (id: number, page = 1) => request("/users/" + id + "/posts?page=" + page + "&page_size=20"),
-  notifications: (page = 1) => request("/notifications?page=" + page + "&page_size=20"),
+  notifications: (type = "", page = 1) => request("/notifications?type=" + type + "&page=" + page + "&page_size=20"),
+  conversations: () => request("/conversations"),
+  conversation: (id: number) => request("/messages/" + id),
+  sendMessage: (id: number, content: string) => request("/messages/" + id, { method: "POST", body: JSON.stringify({ content }) }),
   unreadCount: () => request("/notifications/unread-count"),
   markNotificationsRead: () => request("/notifications/read", { method: "POST" }),
 };

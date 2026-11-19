@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"regexp"
 	"time"
 
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/model"
@@ -11,11 +12,12 @@ import (
 type CommentService struct {
 	commentRepo *repository.CommentRepo
 	postRepo    *repository.PostRepo
+	userRepo    *repository.UserRepo
 	notifSvc    *NotificationService
 }
 
-func NewCommentService(commentRepo *repository.CommentRepo, postRepo *repository.PostRepo, notifSvc *NotificationService) *CommentService {
-	return &CommentService{commentRepo: commentRepo, postRepo: postRepo, notifSvc: notifSvc}
+func NewCommentService(commentRepo *repository.CommentRepo, postRepo *repository.PostRepo, userRepo *repository.UserRepo, notifSvc *NotificationService) *CommentService {
+	return &CommentService{commentRepo: commentRepo, postRepo: postRepo, userRepo: userRepo, notifSvc: notifSvc}
 }
 
 type CommentDTO struct {
@@ -49,6 +51,7 @@ func (s *CommentService) Create(ctx context.Context, userID, postID, parentID ui
 			}
 		}
 	}
+	s.notifyMentions(ctx, userID, postID, content)
 	c, err := s.commentRepo.FindByID(comment.ID)
 	if err != nil {
 		return nil, err
@@ -61,6 +64,26 @@ func (s *CommentService) Create(ctx context.Context, userID, postID, parentID ui
 		Author:    AuthorDTO{ID: c.User.ID, Nickname: c.User.Nickname},
 		CreatedAt: c.CreatedAt,
 	}, nil
+}
+
+func (s *CommentService) notifyMentions(ctx context.Context, actorID, postID uint, content string) {
+	if s.notifSvc == nil {
+		return
+	}
+	re := regexp.MustCompile(`@([^\s@]+)`)
+	seen := map[string]bool{}
+	for _, m := range re.FindAllStringSubmatch(content, -1) {
+		name := m[1]
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		user, err := s.userRepo.FindByNickname(name)
+		if err != nil || user == nil {
+			continue
+		}
+		s.notifSvc.Notify(ctx, user.ID, actorID, "mention", postID, content)
+	}
 }
 
 func (s *CommentService) List(ctx context.Context, postID uint) ([]CommentDTO, error) {

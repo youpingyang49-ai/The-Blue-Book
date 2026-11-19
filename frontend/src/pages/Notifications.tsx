@@ -11,22 +11,53 @@ interface NotifItem {
   actor: { id: number; nickname: string };
 }
 
+interface ConvItem {
+  user_id: number;
+  nickname: string;
+  last_message: string;
+  unread: number;
+}
+
 const typeText: Record<string, string> = {
   like: "赞了你的笔记",
   favorite: "收藏了你的笔记",
   comment: "评论了你的笔记",
   follow: "关注了你",
+  mention: "在评论中提到了你",
 };
+
+const tabs = [
+  { key: "like", label: "点赞", type: "like,favorite" },
+  { key: "comment", label: "评论", type: "comment" },
+  { key: "follow", label: "关注", type: "follow" },
+  { key: "mention", label: "@我", type: "mention" },
+  { key: "dm", label: "私信", type: "" },
+];
 
 export default function Notifications() {
   const navigate = useNavigate();
-  const [items, setItems] = useState<NotifItem[]>([]);
+  const [tab, setTab] = useState("like");
+  const [notifs, setNotifs] = useState<NotifItem[]>([]);
+  const [convs, setConvs] = useState<ConvItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const loadNotifs = async (type: string) => {
+    setLoading(true);
     try {
-      const r = await api.notifications();
-      setItems(r.items || []);
+      const r = await api.notifications(type);
+      setNotifs(r.items || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadConvs = async () => {
+    setLoading(true);
+    try {
+      const r = await api.conversations();
+      setConvs(r.items || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -35,19 +66,25 @@ export default function Notifications() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    if (tab === "dm") {
+      loadConvs();
+    } else {
+      const t = tabs.find((x) => x.key === tab);
+      if (t) loadNotifs(t.type);
+    }
+  }, [tab]);
 
   const markAll = async () => {
     try {
       await api.markNotificationsRead();
-      load();
+      const t = tabs.find((x) => x.key === tab);
+      if (t && tab !== "dm") loadNotifs(t.type);
     } catch (e) {
       console.error(e);
     }
   };
 
-  const openItem = (n: NotifItem) => {
+  const openNotif = (n: NotifItem) => {
     if (n.post_id) navigate("/post/" + n.post_id);
   };
 
@@ -55,17 +92,43 @@ export default function Notifications() {
     <div className="notif-page">
       <header className="topbar">
         <button className="back" onClick={() => navigate(-1)}>←</button>
-        <span className="title">消息通知</span>
-        <button className="share-btn" onClick={markAll}>全部已读</button>
+        <span className="title">消息</span>
+        {tab !== "dm" && <button className="share-btn" onClick={markAll}>全部已读</button>}
       </header>
+      <div className="msg-tabs">
+        {tabs.map((t) => (
+          <button key={t.key} className={tab === t.key ? "active" : ""} onClick={() => setTab(t.key)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
       {loading ? (
         <p className="empty">加载中...</p>
-      ) : items.length === 0 ? (
-        <p className="empty">还没有通知</p>
+      ) : tab === "dm" ? (
+        convs.length === 0 ? (
+          <p className="empty">还没有私信</p>
+        ) : (
+          <div className="notif-list">
+            {convs.map((c) => (
+              <div className="notif-item" key={c.user_id} onClick={() => navigate("/chat/" + c.user_id)}>
+                <div className="avatar">{(c.nickname || "U").charAt(0)}</div>
+                <div className="notif-main">
+                  <p>
+                    <b>{c.nickname}</b>
+                    {c.unread > 0 ? "（" + c.unread + " 条未读）" : ""}
+                  </p>
+                  <p className="notif-content">{c.last_message}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : notifs.length === 0 ? (
+        <p className="empty">暂无相关通知</p>
       ) : (
         <div className="notif-list">
-          {items.map((n) => (
-            <div className={n.read ? "notif-item read" : "notif-item"} key={n.id} onClick={() => openItem(n)}>
+          {notifs.map((n) => (
+            <div className={n.read ? "notif-item read" : "notif-item"} key={n.id} onClick={() => openNotif(n)}>
               <div className="avatar">{(n.actor?.nickname || "U").charAt(0)}</div>
               <div className="notif-main">
                 <p>

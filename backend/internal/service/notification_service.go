@@ -39,8 +39,8 @@ func (s *NotificationService) Notify(ctx context.Context, recipientID, actorID u
 	})
 }
 
-func (s *NotificationService) List(ctx context.Context, userID uint, page, pageSize int) ([]NotificationDTO, error) {
-	notifs, err := s.notifRepo.ListByUser(userID, page, pageSize)
+func (s *NotificationService) List(ctx context.Context, userID uint, typ string, page, pageSize int) ([]NotificationDTO, error) {
+	notifs, err := s.notifRepo.ListByUser(userID, typ, page, pageSize)
 	if err != nil {
 		return nil, err
 	}

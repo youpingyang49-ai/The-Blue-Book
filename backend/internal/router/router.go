@@ -36,8 +36,12 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 	uploadHandler := handler.NewUploadHandler(st)
 
 	commentRepo := repository.NewCommentRepo(db)
-	commentSvc := service.NewCommentService(commentRepo, postRepo, notifSvc)
+	commentSvc := service.NewCommentService(commentRepo, postRepo, userRepo, notifSvc)
 	commentHandler := handler.NewCommentHandler(commentSvc)
+
+	messageRepo := repository.NewMessageRepo(db)
+	messageSvc := service.NewMessageService(messageRepo)
+	messageHandler := handler.NewMessageHandler(messageSvc)
 
 	followSvc := service.NewFollowService(followRepo, notifSvc)
 	followHandler := handler.NewFollowHandler(followSvc)
@@ -81,6 +85,9 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 			protected.GET("/notifications", notifHandler.List)
 			protected.GET("/notifications/unread-count", notifHandler.UnreadCount)
 			protected.POST("/notifications/read", notifHandler.MarkAllRead)
+			protected.GET("/conversations", messageHandler.Conversations)
+			protected.GET("/messages/:id", messageHandler.Conversation)
+			protected.POST("/messages/:id", messageHandler.Send)
 		}
 	}
 

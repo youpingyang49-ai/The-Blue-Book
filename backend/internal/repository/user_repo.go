@@ -43,3 +43,15 @@ func (r *UserRepo) FindByID(id uint) (*model.User, error) {
 func (r *UserRepo) Create(user *model.User) error {
 	return r.db.Create(user).Error
 }
+
+func (r *UserRepo) FindByNickname(nickname string) (*model.User, error) {
+	var user model.User
+	err := r.db.Where("nickname = ?", nickname).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}

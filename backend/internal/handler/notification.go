@@ -19,6 +19,7 @@ func NewNotificationHandler(notif *service.NotificationService) *NotificationHan
 
 func (h *NotificationHandler) List(c *gin.Context) {
 	userID := c.GetUint("userID")
+	typ := c.Query("type")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	if page < 1 {
@@ -27,7 +28,7 @@ func (h *NotificationHandler) List(c *gin.Context) {
 	if pageSize < 1 || pageSize > 50 {
 		pageSize = 20
 	}
-	dtos, err := h.notif.List(c.Request.Context(), userID, page, pageSize)
+	dtos, err := h.notif.List(c.Request.Context(), userID, typ, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
 		return

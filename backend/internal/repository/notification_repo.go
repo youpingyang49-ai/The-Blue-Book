@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"strings"
+
 	"gorm.io/gorm"
 
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/model"
@@ -18,10 +20,13 @@ func (r *NotificationRepo) Create(n *model.Notification) error {
 	return r.db.Create(n).Error
 }
 
-func (r *NotificationRepo) ListByUser(userID uint, page, pageSize int) ([]model.Notification, error) {
+func (r *NotificationRepo) ListByUser(userID uint, typ string, page, pageSize int) ([]model.Notification, error) {
+	q := r.db.Where("user_id = ?", userID)
+	if typ != "" {
+		q = q.Where("type IN ?", strings.Split(typ, ","))
+	}
 	var notifs []model.Notification
-	err := r.db.Where("user_id = ?", userID).
-		Preload("Actor").
+	err := q.Preload("Actor").
 		Order("id DESC").
 		Limit(pageSize).Offset((page - 1) * pageSize).
 		Find(&notifs).Error
