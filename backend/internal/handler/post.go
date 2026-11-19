@@ -171,3 +171,51 @@ func (h *PostHandler) MyLikes(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"items": dtos, "page": page, "page_size": pageSize})
 }
+
+func (h *PostHandler) Favorite(c *gin.Context) {
+	userID := c.GetUint("userID")
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	favorited, err := h.post.Favorite(c.Request.Context(), userID, uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "操作失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"favorited": favorited})
+}
+
+func (h *PostHandler) Unfavorite(c *gin.Context) {
+	userID := c.GetUint("userID")
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	unfavorited, err := h.post.Unfavorite(c.Request.Context(), userID, uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "操作失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"unfavorited": unfavorited})
+}
+
+func (h *PostHandler) MyFavorites(c *gin.Context) {
+	userID := c.GetUint("userID")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 50 {
+		pageSize = 20
+	}
+	dtos, err := h.post.MyFavorites(c.Request.Context(), userID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": dtos, "page": page, "page_size": pageSize})
+}

@@ -14,10 +14,10 @@ var ErrPostNotFound = errors.New("帖子不存在")
 
 type PostService struct {
 	postRepo *repository.PostRepo
-	storage  *storage.Storage
+	storage  storage.Storage
 }
 
-func NewPostService(postRepo *repository.PostRepo, st *storage.Storage) *PostService {
+func NewPostService(postRepo *repository.PostRepo, st storage.Storage) *PostService {
 	return &PostService{postRepo: postRepo, storage: st}
 }
 
@@ -28,15 +28,17 @@ type AuthorDTO struct {
 }
 
 type PostDTO struct {
-	ID        uint      `json:"id"`
-	Title     string    `json:"title"`
-	Content   string    `json:"content,omitempty"`
-	CoverURL  string    `json:"cover_image_url"`
-	ImageURLs []string  `json:"image_urls,omitempty"`
-	LikeCount int64     `json:"like_count"`
-	IsLiked   bool      `json:"is_liked"`
-	Author    AuthorDTO `json:"author"`
-	CreatedAt time.Time `json:"created_at"`
+	ID            uint      `json:"id"`
+	Title         string    `json:"title"`
+	Content       string    `json:"content,omitempty"`
+	CoverURL      string    `json:"cover_image_url"`
+	ImageURLs     []string  `json:"image_urls,omitempty"`
+	LikeCount     int64     `json:"like_count"`
+	FavoriteCount int64     `json:"favorite_count"`
+	IsLiked       bool      `json:"is_liked"`
+	IsFavorited   bool      `json:"is_favorited"`
+	Author        AuthorDTO `json:"author"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 func (s *PostService) Create(ctx context.Context, userID uint, title, content string, keys []string) (*model.Post, error) {
@@ -72,10 +74,11 @@ func (s *PostService) buildDTOs(ctx context.Context, posts []model.Post, viewerI
 	dtos := make([]PostDTO, 0, len(posts))
 	for _, p := range posts {
 		dto := PostDTO{
-			ID:        p.ID,
-			Title:     p.Title,
-			LikeCount: p.LikeCount,
-			CreatedAt: p.CreatedAt,
+			ID:            p.ID,
+			Title:         p.Title,
+			LikeCount:     p.LikeCount,
+			FavoriteCount: p.FavoriteCount,
+			CreatedAt:     p.CreatedAt,
 			Author: AuthorDTO{
 				ID:       p.User.ID,
 				Nickname: p.User.Nickname,
@@ -126,6 +129,14 @@ func (s *PostService) MyLikes(ctx context.Context, userID uint, page, pageSize i
 	return s.buildDTOs(ctx, posts, userID)
 }
 
+func (s *PostService) MyFavorites(ctx context.Context, userID uint, page, pageSize int) ([]PostDTO, error) {
+	posts, err := s.postRepo.ListFavoritedByUser(userID, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildDTOs(ctx, posts, userID)
+}
+
 func (s *PostService) Detail(ctx context.Context, postID, viewerID uint) (*PostDTO, error) {
 	post, err := s.postRepo.FindByID(postID)
 	if err != nil {
@@ -136,11 +147,12 @@ func (s *PostService) Detail(ctx context.Context, postID, viewerID uint) (*PostD
 	}
 
 	dto := PostDTO{
-		ID:        post.ID,
-		Title:     post.Title,
-		Content:   post.Content,
-		LikeCount: post.LikeCount,
-		CreatedAt: post.CreatedAt,
+		ID:            post.ID,
+		Title:         post.Title,
+		Content:       post.Content,
+		LikeCount:     post.LikeCount,
+		FavoriteCount: post.FavoriteCount,
+		CreatedAt:     post.CreatedAt,
 		Author: AuthorDTO{
 			ID:       post.User.ID,
 			Nickname: post.User.Nickname,
@@ -157,6 +169,8 @@ func (s *PostService) Detail(ctx context.Context, postID, viewerID uint) (*PostD
 	if viewerID != 0 {
 		liked, _ := s.postRepo.LikedPostIDs(viewerID, []uint{postID})
 		dto.IsLiked = liked[postID]
+		faved, _ := s.postRepo.FavoritedPostIDs(viewerID, []uint{postID})
+		dto.IsFavorited = faved[postID]
 	}
 	return &dto, nil
 }
@@ -167,4 +181,12 @@ func (s *PostService) Like(ctx context.Context, userID, postID uint) (bool, erro
 
 func (s *PostService) Unlike(ctx context.Context, userID, postID uint) (bool, error) {
 	return s.postRepo.Unlike(userID, postID)
+}
+
+func (s *PostService) Favorite(ctx context.Context, userID, postID uint) (bool, error) {
+	return s.postRepo.Favorite(userID, postID)
+}
+
+func (s *PostService) Unfavorite(ctx context.Context, userID, postID uint) (bool, error) {
+	return s.postRepo.Unfavorite(userID, postID)
 }

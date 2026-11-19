@@ -17,7 +17,10 @@ export default function Profile() {
     if (!token) return;
     setLoading(true);
     try {
-      const r = t === "posts" ? await api.myPosts() : await api.myLikes();
+      let r;
+      if (t === "posts") r = await api.myPosts();
+      else if (t === "likes") r = await api.myLikes();
+      else r = await api.myFavorites();
       setItems(r.items || []);
     } catch (e: any) {
       console.error(e);
@@ -53,11 +56,12 @@ export default function Profile() {
       <div className="sort-tabs">
         <button className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}>我的帖子</button>
         <button className={tab === "likes" ? "active" : ""} onClick={() => setTab("likes")}>我的点赞</button>
+        <button className={tab === "favorites" ? "active" : ""} onClick={() => setTab("favorites")}>我的收藏</button>
       </div>
       {loading ? (
         <p className="empty">加载中...</p>
       ) : items.length === 0 ? (
-        <p className="empty">{tab === "posts" ? "还没有发过帖子" : "还没有点过赞"}</p>
+        <p className="empty">{tab === "posts" ? "还没有发过帖子" : tab === "likes" ? "还没有点过赞" : "还没有收藏"}</p>
       ) : (
         <div className="waterfall">
           {items.map((p) => (

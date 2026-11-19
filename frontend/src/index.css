@@ -291,6 +291,49 @@ input:focus, textarea:focus {
   border-color: #ff2442;
 }
 
+.action-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.comments {
+  border-top: 1px solid #f0f0f0;
+  padding: 16px;
+}
+
+.comments h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.comment-input {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.comment-input input {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.comment-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.comment-main {
+  flex: 1;
+}
+
+.comment-main p {
+  margin-top: 2px;
+  color: #333;
+  line-height: 1.5;
+}
+
 .tabbar {
   position: fixed;
   bottom: 0;

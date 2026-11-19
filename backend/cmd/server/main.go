@@ -23,14 +23,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := db.AutoMigrate(&model.User{}, &model.Post{}, &model.PostImage{}, &model.Like{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Post{}, &model.PostImage{}, &model.Like{}, &model.Favorite{}, &model.Comment{}); err != nil {
 		slog.Error("failed to migrate", "error", err)
 		os.Exit(1)
 	}
 
 	rdb := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 
-	st, err := storage.New(cfg.UploadDir, cfg.PublicBaseURL)
+	var st storage.Storage
+	if cfg.MinIO.Endpoint != "" {
+		st, err = storage.NewMinio(cfg.MinIO.Endpoint, cfg.MinIO.AccessKey, cfg.MinIO.SecretKey, cfg.MinIO.Bucket, cfg.MinIO.UseSSL)
+	} else {
+		st, err = storage.NewLocal(cfg.UploadDir, cfg.PublicBaseURL)
+	}
 	if err != nil {
 		slog.Error("failed to init storage", "error", err)
 		os.Exit(1)

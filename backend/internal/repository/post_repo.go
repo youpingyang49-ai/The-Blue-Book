@@ -144,3 +144,65 @@ func (r *PostRepo) ListLikedByUser(userID uint, page, pageSize int) ([]model.Pos
 		Find(&posts).Error
 	return posts, err
 }
+
+func (r *PostRepo) Favorite(userID, postID uint) (bool, error) {
+	var count int64
+	if err := r.db.Model(&model.Favorite{}).Where("user_id = ? AND post_id = ?", userID, postID).Count(&count).Error; err != nil {
+		return false, err
+	}
+	if count > 0 {
+		return false, nil
+	}
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&model.Favorite{UserID: userID, PostID: postID}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.Post{}).Where("id = ?", postID).UpdateColumn("favorite_count", gorm.Expr("favorite_count + 1")).Error
+	})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *PostRepo) Unfavorite(userID, postID uint) (bool, error) {
+	res := r.db.Where("user_id = ? AND post_id = ?", userID, postID).Delete(&model.Favorite{})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return false, nil
+	}
+	if err := r.db.Model(&model.Post{}).Where("id = ?", postID).UpdateColumn("favorite_count", gorm.Expr("GREATEST(favorite_count - 1, 0)")).Error; err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *PostRepo) ListFavoritedByUser(userID uint, page, pageSize int) ([]model.Post, error) {
+	var posts []model.Post
+	err := r.db.Joins("JOIN favorites ON favorites.post_id = posts.id").
+		Where("favorites.user_id = ?", userID).
+		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Order("sort_order ASC")
+		}).
+		Order("favorites.created_at DESC").
+		Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&posts).Error
+	return posts, err
+}
+
+func (r *PostRepo) FavoritedPostIDs(userID uint, postIDs []uint) (map[uint]bool, error) {
+	set := make(map[uint]bool)
+	if len(postIDs) == 0 {
+		return set, nil
+	}
+	var favs []model.Favorite
+	if err := r.db.Where("user_id = ? AND post_id IN ?", userID, postIDs).Find(&favs).Error; err != nil {
+		return nil, err
+	}
+	for _, f := range favs {
+		set[f.PostID] = true
+	}
+	return set, nil
+}

@@ -46,4 +46,9 @@ export const api = {
     request("/search?q=" + encodeURIComponent(q) + "&page=" + page + "&page_size=20"),
   myPosts: (page = 1) => request("/users/me/posts?page=" + page + "&page_size=20"),
   myLikes: (page = 1) => request("/users/me/likes?page=" + page + "&page_size=20"),
+  myFavorites: (page = 1) => request("/users/me/favorites?page=" + page + "&page_size=20"),
+  favorite: (id: number) => request("/posts/" + id + "/favorite", { method: "POST" }),
+  unfavorite: (id: number) => request("/posts/" + id + "/favorite", { method: "DELETE" }),
+  listComments: (id: number, page = 1) => request("/posts/" + id + "/comments?page=" + page + "&page_size=20"),
+  createComment: (id: number, content: string) => request("/posts/" + id + "/comments", { method: "POST", body: JSON.stringify({ content }) }),
 };

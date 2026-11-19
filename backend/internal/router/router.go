@@ -13,7 +13,7 @@ import (
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/service"
 )
 
-func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st *storage.Storage, appEnv string) *gin.Engine {
+func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage, appEnv string) *gin.Engine {
 	r := gin.Default()
 
 	health := handler.NewHealthHandler(db)
@@ -28,6 +28,10 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st *storage.Storag
 	postHandler := handler.NewPostHandler(postSvc)
 	uploadHandler := handler.NewUploadHandler(st)
 
+	commentRepo := repository.NewCommentRepo(db)
+	commentSvc := service.NewCommentService(commentRepo)
+	commentHandler := handler.NewCommentHandler(commentSvc)
+
 	api := r.Group("/api/v1")
 	{
 		api.GET("/health", health.Check)
@@ -41,6 +45,7 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st *storage.Storag
 		api.GET("/posts", middleware.OptionalAuth(jwtMgr), postHandler.List)
 		api.GET("/posts/:id", middleware.OptionalAuth(jwtMgr), postHandler.Detail)
 		api.GET("/search", middleware.OptionalAuth(jwtMgr), postHandler.Search)
+		api.GET("/posts/:id/comments", middleware.OptionalAuth(jwtMgr), commentHandler.List)
 
 		protected := api.Group("")
 		protected.Use(middleware.Auth(jwtMgr))
@@ -48,10 +53,14 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st *storage.Storag
 			protected.GET("/users/me", userHandler.Me)
 			protected.GET("/users/me/posts", postHandler.MyPosts)
 			protected.GET("/users/me/likes", postHandler.MyLikes)
+			protected.GET("/users/me/favorites", postHandler.MyFavorites)
 			protected.POST("/upload", uploadHandler.Upload)
 			protected.POST("/posts", postHandler.Create)
 			protected.POST("/posts/:id/like", postHandler.Like)
 			protected.DELETE("/posts/:id/like", postHandler.Unlike)
+			protected.POST("/posts/:id/favorite", postHandler.Favorite)
+			protected.DELETE("/posts/:id/favorite", postHandler.Unfavorite)
+			protected.POST("/posts/:id/comments", commentHandler.Create)
 		}
 	}
 

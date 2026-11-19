@@ -10,6 +10,15 @@ type Config struct {
 	AppEnv        string
 	UploadDir     string
 	PublicBaseURL string
+	MinIO         MinIOConfig
+}
+
+type MinIOConfig struct {
+	Endpoint  string
+	AccessKey string
+	SecretKey string
+	Bucket    string
+	UseSSL    bool
 }
 
 func Load() *Config {
@@ -21,6 +30,13 @@ func Load() *Config {
 		AppEnv:        getEnv("APP_ENV", "development"),
 		UploadDir:     getEnv("UPLOAD_DIR", "./uploads"),
 		PublicBaseURL: getEnv("PUBLIC_BASE_URL", "http://127.0.0.1:8080"),
+		MinIO: MinIOConfig{
+			Endpoint:  getEnv("MINIO_ENDPOINT", ""),
+			AccessKey: getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+			SecretKey: getEnv("MINIO_SECRET_KEY", "minioadmin"),
+			Bucket:    getEnv("MINIO_BUCKET", "bluebook"),
+			UseSSL:    getEnv("MINIO_USE_SSL", "false") == "true",
+		},
 	}
 }
 
