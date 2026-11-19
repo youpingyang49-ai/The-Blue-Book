@@ -11,11 +11,13 @@
 
 - 🔐 手机号 + 验证码登录（JWT 双 token）
 - 📝 图文发布：多图上传 + 话题标签
-- 🏠 首页 feed：最新 / 热门 / 关注 三列 + 双列瀑布流
+- 🏠 首页 feed：推荐 / 最新 / 热门 / 关注 + 双列瀑布流
 - 🔍 搜索：标题 / 正文 / 话题
-- ❤️ 互动：点赞、收藏、评论
+- ❤️ 互动：点赞、收藏、评论（嵌套回复）
 - 👥 关注：关注 / 取关、关注流、个人主页
+- 🔔 消息中心：点赞 / 评论 / 关注 / @提及 / 私信
 - ✏️ 帖子管理：编辑 / 删除（仅作者）
+- 🤖 推荐算法：热度加权 + 时间衰减
 - 📱 移动端风格 UI
 
 ## 🛠 技术栈
@@ -96,7 +98,7 @@
     POST   /api/v1/auth/login            验证码登录
 
     # 帖子
-    GET    /api/v1/posts                 首页 feed（sort=latest|hot|following）
+    GET    /api/v1/posts                 首页 feed（sort=recommend|latest|hot|following）
     POST   /api/v1/posts                 发布帖子
     GET    /api/v1/posts/:id             帖子详情
     PUT    /api/v1/posts/:id             编辑帖子（仅作者）
@@ -116,6 +118,14 @@
     GET    /api/v1/users/:id/posts       某用户的帖子
     POST   /api/v1/users/:id/follow      关注
     DELETE /api/v1/users/:id/follow      取关
+
+    # 消息 / 通知
+    GET    /api/v1/notifications           通知列表（type=like|comment|follow|mention）
+    GET    /api/v1/notifications/unread-count  未读数
+    POST   /api/v1/notifications/read      全部已读
+    GET    /api/v1/conversations           私信会话列表
+    GET    /api/v1/messages/:id            聊天记录
+    POST   /api/v1/messages/:id            发私信
 
     # 其他
     GET    /api/v1/search                搜索（标题/正文/话题）
@@ -153,15 +163,16 @@
 - [x] 点赞 / 收藏 / 评论
 - [x] 关注 / 关注流 / 个人主页
 - [x] 帖子编辑 / 删除
+- [x] 评论回复（嵌套）
+- [x] 消息通知 + @提及 + 私信
+- [x] 推荐算法
 - [x] 前端全部页面
 
 **规划中**
 
 - [ ] 接入真实短信服务
 - [ ] 接入 OSS / MinIO 生产对象存储
-- [ ] 评论回复（嵌套）
-- [ ] 消息通知
-- [ ] 推荐算法
+- [ ] 内容审核（敏感词 / 图片审核）
 
 ## 📄 License
 
