@@ -40,11 +40,14 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st *storage.Storag
 
 		api.GET("/posts", middleware.OptionalAuth(jwtMgr), postHandler.List)
 		api.GET("/posts/:id", middleware.OptionalAuth(jwtMgr), postHandler.Detail)
+		api.GET("/search", middleware.OptionalAuth(jwtMgr), postHandler.Search)
 
 		protected := api.Group("")
 		protected.Use(middleware.Auth(jwtMgr))
 		{
 			protected.GET("/users/me", userHandler.Me)
+			protected.GET("/users/me/posts", postHandler.MyPosts)
+			protected.GET("/users/me/likes", postHandler.MyLikes)
 			protected.POST("/upload", uploadHandler.Upload)
 			protected.POST("/posts", postHandler.Create)
 			protected.POST("/posts/:id/like", postHandler.Like)

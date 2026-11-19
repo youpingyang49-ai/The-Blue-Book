@@ -54,12 +54,7 @@ func (s *PostService) Create(ctx context.Context, userID uint, title, content st
 	return post, nil
 }
 
-func (s *PostService) Feed(ctx context.Context, sort string, page, pageSize int, viewerID uint) ([]PostDTO, error) {
-	posts, err := s.postRepo.List(repository.ListParams{Sort: sort, Page: page, PageSize: pageSize})
-	if err != nil {
-		return nil, err
-	}
-
+func (s *PostService) buildDTOs(ctx context.Context, posts []model.Post, viewerID uint) ([]PostDTO, error) {
 	postIDs := make([]uint, len(posts))
 	for i, p := range posts {
 		postIDs[i] = p.ID
@@ -67,6 +62,7 @@ func (s *PostService) Feed(ctx context.Context, sort string, page, pageSize int,
 
 	var liked map[uint]bool
 	if viewerID != 0 {
+		var err error
 		liked, err = s.postRepo.LikedPostIDs(viewerID, postIDs)
 		if err != nil {
 			return nil, err
@@ -96,6 +92,38 @@ func (s *PostService) Feed(ctx context.Context, sort string, page, pageSize int,
 		dtos = append(dtos, dto)
 	}
 	return dtos, nil
+}
+
+func (s *PostService) Feed(ctx context.Context, sort string, page, pageSize int, viewerID uint) ([]PostDTO, error) {
+	posts, err := s.postRepo.List(repository.ListParams{Sort: sort, Page: page, PageSize: pageSize})
+	if err != nil {
+		return nil, err
+	}
+	return s.buildDTOs(ctx, posts, viewerID)
+}
+
+func (s *PostService) Search(ctx context.Context, q string, page, pageSize int, viewerID uint) ([]PostDTO, error) {
+	posts, err := s.postRepo.Search(q, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildDTOs(ctx, posts, viewerID)
+}
+
+func (s *PostService) MyPosts(ctx context.Context, userID uint, page, pageSize int) ([]PostDTO, error) {
+	posts, err := s.postRepo.ListByUser(userID, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildDTOs(ctx, posts, userID)
+}
+
+func (s *PostService) MyLikes(ctx context.Context, userID uint, page, pageSize int) ([]PostDTO, error) {
+	posts, err := s.postRepo.ListLikedByUser(userID, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildDTOs(ctx, posts, userID)
 }
 
 func (s *PostService) Detail(ctx context.Context, postID, viewerID uint) (*PostDTO, error) {

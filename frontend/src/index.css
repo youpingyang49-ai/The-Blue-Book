@@ -325,7 +325,13 @@ input:focus, textarea:focus {
 }
 
 .profile-page {
-  padding: 20px;
+  padding: 20px 20px 70px;
+}
+
+.logout {
+  margin-left: auto;
+  color: #999;
+  font-size: 14px;
 }
 
 .profile-head {

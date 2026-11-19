@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -109,4 +110,64 @@ func (h *PostHandler) Unlike(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"unliked": unliked})
+}
+
+func (h *PostHandler) Search(c *gin.Context) {
+	q := strings.TrimSpace(c.Query("q"))
+	if q == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请输入搜索关键词"})
+		return
+	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 50 {
+		pageSize = 20
+	}
+	viewerID := c.GetUint("userID")
+
+	dtos, err := h.post.Search(c.Request.Context(), q, page, pageSize, viewerID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "搜索失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": dtos, "page": page, "page_size": pageSize, "query": q})
+}
+
+func (h *PostHandler) MyPosts(c *gin.Context) {
+	userID := c.GetUint("userID")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 50 {
+		pageSize = 20
+	}
+	dtos, err := h.post.MyPosts(c.Request.Context(), userID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": dtos, "page": page, "page_size": pageSize})
+}
+
+func (h *PostHandler) MyLikes(c *gin.Context) {
+	userID := c.GetUint("userID")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 50 {
+		pageSize = 20
+	}
+	dtos, err := h.post.MyLikes(c.Request.Context(), userID, page, pageSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": dtos, "page": page, "page_size": pageSize})
 }

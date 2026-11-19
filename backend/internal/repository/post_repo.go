@@ -106,3 +106,41 @@ func (r *PostRepo) LikedPostIDs(userID uint, postIDs []uint) (map[uint]bool, err
 	}
 	return set, nil
 }
+
+func (r *PostRepo) Search(q string, page, pageSize int) ([]model.Post, error) {
+	var posts []model.Post
+	like := "%" + q + "%"
+	err := r.db.Where("title LIKE ? OR content LIKE ?", like, like).
+		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Order("sort_order ASC")
+		}).
+		Order("id DESC").
+		Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&posts).Error
+	return posts, err
+}
+
+func (r *PostRepo) ListByUser(userID uint, page, pageSize int) ([]model.Post, error) {
+	var posts []model.Post
+	err := r.db.Where("user_id = ?", userID).
+		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Order("sort_order ASC")
+		}).
+		Order("id DESC").
+		Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&posts).Error
+	return posts, err
+}
+
+func (r *PostRepo) ListLikedByUser(userID uint, page, pageSize int) ([]model.Post, error) {
+	var posts []model.Post
+	err := r.db.Joins("JOIN likes ON likes.post_id = posts.id").
+		Where("likes.user_id = ?", userID).
+		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Order("sort_order ASC")
+		}).
+		Order("likes.created_at DESC").
+		Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&posts).Error
+	return posts, err
+}

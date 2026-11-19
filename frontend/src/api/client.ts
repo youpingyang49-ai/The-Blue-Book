@@ -42,4 +42,8 @@ export const api = {
     fd.append("file", file);
     return request("/upload", { method: "POST", body: fd });
   },
+  search: (q: string, page = 1) =>
+    request("/search?q=" + encodeURIComponent(q) + "&page=" + page + "&page_size=20"),
+  myPosts: (page = 1) => request("/users/me/posts?page=" + page + "&page_size=20"),
+  myLikes: (page = 1) => request("/users/me/likes?page=" + page + "&page_size=20"),
 };
