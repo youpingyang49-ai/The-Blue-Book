@@ -83,6 +83,16 @@ export default function PostDetail() {
     }
   };
 
+  const deletePost = async () => {
+    if (!window.confirm("确定删除这篇笔记吗？")) return;
+    try {
+      await api.deletePost(post.id);
+      navigate("/");
+    } catch (e: any) {
+      setMsg(e.message);
+    }
+  };
+
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -151,6 +161,13 @@ export default function PostDetail() {
       </div>
       <div className="detail-body">
         <h2>{post.title}</h2>
+        {post.topics && post.topics.length > 0 && (
+          <div className="topic-tags">
+            {post.topics.map((t: string) => (
+              <span className="topic-tag" key={t}>#{t}</span>
+            ))}
+          </div>
+        )}
         <p className="content">{post.content}</p>
         <div className="action-row">
           <button className={post.is_liked ? "like-btn liked" : "like-btn"} onClick={toggleLike}>
@@ -160,6 +177,12 @@ export default function PostDetail() {
             {post.is_favorited ? "★ 已收藏" : "☆ 收藏"} {post.favorite_count}
           </button>
         </div>
+        {isSelf && (
+          <div className="action-row">
+            <button className="like-btn" onClick={() => navigate("/edit/" + post.id)}>编辑</button>
+            <button className="like-btn" onClick={deletePost}>删除</button>
+          </div>
+        )}
         {msg && <p className="msg">{msg}</p>}
       </div>
       <div className="comments">

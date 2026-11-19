@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/model"
@@ -10,16 +11,20 @@ import (
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/repository"
 )
 
-var ErrPostNotFound = errors.New("帖子不存在")
+var (
+	ErrPostNotFound = errors.New("帖子不存在")
+	ErrForbidden    = errors.New("无权限操作")
+)
 
 type PostService struct {
 	postRepo   *repository.PostRepo
 	followRepo *repository.FollowRepo
+	topicRepo  *repository.TopicRepo
 	storage    storage.Storage
 }
 
-func NewPostService(postRepo *repository.PostRepo, followRepo *repository.FollowRepo, st storage.Storage) *PostService {
-	return &PostService{postRepo: postRepo, followRepo: followRepo, storage: st}
+func NewPostService(postRepo *repository.PostRepo, followRepo *repository.FollowRepo, topicRepo *repository.TopicRepo, st storage.Storage) *PostService {
+	return &PostService{postRepo: postRepo, followRepo: followRepo, topicRepo: topicRepo, storage: st}
 }
 
 type AuthorDTO struct {
@@ -40,11 +45,12 @@ type PostDTO struct {
 	IsLiked       bool      `json:"is_liked"`
 	IsFavorited   bool      `json:"is_favorited"`
 	IsFollowing   bool      `json:"is_following"`
+	Topics        []string  `json:"topics"`
 	Author        AuthorDTO `json:"author"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
-func (s *PostService) Create(ctx context.Context, userID uint, title, content string, keys []string) (*model.Post, error) {
+func (s *PostService) Create(ctx context.Context, userID uint, title, content string, keys []string, topics []string) (*model.Post, error) {
 	post := &model.Post{
 		UserID:  userID,
 		Title:   title,
@@ -56,7 +62,49 @@ func (s *PostService) Create(ctx context.Context, userID uint, title, content st
 	if err := s.postRepo.Create(post); err != nil {
 		return nil, err
 	}
+	for _, name := range topics {
+		name = strings.TrimPrefix(strings.TrimSpace(name), "#")
+		if name == "" {
+			continue
+		}
+		topic, err := s.topicRepo.FindOrCreateByName(name)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.topicRepo.Link(post.ID, topic.ID); err != nil {
+			return nil, err
+		}
+		_ = s.topicRepo.IncrementCount(topic.ID)
+	}
 	return post, nil
+}
+
+func (s *PostService) Update(ctx context.Context, userID, postID uint, title, content string) error {
+	post, err := s.postRepo.FindByID(postID)
+	if err != nil {
+		return err
+	}
+	if post == nil {
+		return ErrPostNotFound
+	}
+	if post.UserID != userID {
+		return ErrForbidden
+	}
+	return s.postRepo.Update(postID, title, content)
+}
+
+func (s *PostService) Delete(ctx context.Context, userID, postID uint) error {
+	post, err := s.postRepo.FindByID(postID)
+	if err != nil {
+		return err
+	}
+	if post == nil {
+		return ErrPostNotFound
+	}
+	if post.UserID != userID {
+		return ErrForbidden
+	}
+	return s.postRepo.Delete(postID)
 }
 
 func (s *PostService) buildDTOs(ctx context.Context, posts []model.Post, viewerID uint) ([]PostDTO, error) {
@@ -141,6 +189,22 @@ func (s *PostService) MyFavorites(ctx context.Context, userID uint, page, pageSi
 	return s.buildDTOs(ctx, posts, userID)
 }
 
+func (s *PostService) FollowingFeed(ctx context.Context, userID uint, page, pageSize int) ([]PostDTO, error) {
+	posts, err := s.postRepo.ListByFollowees(userID, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildDTOs(ctx, posts, userID)
+}
+
+func (s *PostService) UserPosts(ctx context.Context, targetUserID uint, page, pageSize int, viewerID uint) ([]PostDTO, error) {
+	posts, err := s.postRepo.ListByUser(targetUserID, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildDTOs(ctx, posts, viewerID)
+}
+
 func (s *PostService) Detail(ctx context.Context, postID, viewerID uint) (*PostDTO, error) {
 	post, err := s.postRepo.FindByID(postID)
 	if err != nil {
@@ -171,6 +235,12 @@ func (s *PostService) Detail(ctx context.Context, postID, viewerID uint) (*PostD
 	if len(dto.ImageURLs) > 0 {
 		dto.CoverURL = dto.ImageURLs[0]
 	}
+	if topics, err := s.topicRepo.ListByPost(post.ID); err == nil {
+		dto.Topics = make([]string, 0, len(topics))
+		for _, t := range topics {
+			dto.Topics = append(dto.Topics, t.Name)
+		}
+	}
 	if viewerID != 0 {
 		liked, _ := s.postRepo.LikedPostIDs(viewerID, []uint{postID})
 		dto.IsLiked = liked[postID]
@@ -196,20 +266,4 @@ func (s *PostService) Favorite(ctx context.Context, userID, postID uint) (bool, 
 
 func (s *PostService) Unfavorite(ctx context.Context, userID, postID uint) (bool, error) {
 	return s.postRepo.Unfavorite(userID, postID)
-}
-
-func (s *PostService) FollowingFeed(ctx context.Context, userID uint, page, pageSize int) ([]PostDTO, error) {
-	posts, err := s.postRepo.ListByFollowees(userID, page, pageSize)
-	if err != nil {
-		return nil, err
-	}
-	return s.buildDTOs(ctx, posts, userID)
-}
-
-func (s *PostService) UserPosts(ctx context.Context, targetUserID uint, page, pageSize int, viewerID uint) ([]PostDTO, error) {
-	posts, err := s.postRepo.ListByUser(targetUserID, page, pageSize)
-	if err != nil {
-		return nil, err
-	}
-	return s.buildDTOs(ctx, posts, viewerID)
 }

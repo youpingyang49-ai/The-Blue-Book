@@ -22,6 +22,7 @@ type createPostReq struct {
 	Title     string   `json:"title"`
 	Content   string   `json:"content"`
 	ImageKeys []string `json:"image_keys"`
+	Topics    []string `json:"topics"`
 }
 
 func (h *PostHandler) Create(c *gin.Context) {
@@ -35,7 +36,7 @@ func (h *PostHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "至少需要一张图片"})
 		return
 	}
-	post, err := h.post.Create(c.Request.Context(), userID, req.Title, req.Content, req.ImageKeys)
+	post, err := h.post.Create(c.Request.Context(), userID, req.Title, req.Content, req.ImageKeys, req.Topics)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "发布失败"})
 		return
@@ -251,4 +252,51 @@ func (h *PostHandler) UserPosts(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": dtos, "page": page, "page_size": pageSize})
+}
+
+func (h *PostHandler) Update(c *gin.Context) {
+	userID := c.GetUint("userID")
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	var req createPostReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if err := h.post.Update(c.Request.Context(), userID, uint(id), req.Title, req.Content); err != nil {
+		switch err {
+		case service.ErrPostNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case service.ErrForbidden:
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "更新失败"})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "更新成功"})
+}
+
+func (h *PostHandler) Delete(c *gin.Context) {
+	userID := c.GetUint("userID")
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
+		return
+	}
+	if err := h.post.Delete(c.Request.Context(), userID, uint(id)); err != nil {
+		switch err {
+		case service.ErrPostNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case service.ErrForbidden:
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "删除失败"})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
 }

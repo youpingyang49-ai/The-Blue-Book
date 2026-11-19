@@ -110,7 +110,11 @@ func (r *PostRepo) LikedPostIDs(userID uint, postIDs []uint) (map[uint]bool, err
 func (r *PostRepo) Search(q string, page, pageSize int) ([]model.Post, error) {
 	var posts []model.Post
 	like := "%" + q + "%"
-	err := r.db.Where("title LIKE ? OR content LIKE ?", like, like).
+	subQuery := r.db.Model(&model.PostTopic{}).
+		Select("post_topics.post_id").
+		Joins("JOIN topics ON topics.id = post_topics.topic_id").
+		Where("topics.name LIKE ?", like)
+	err := r.db.Where("title LIKE ? OR content LIKE ? OR id IN (?)", like, like, subQuery).
 		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Order("sort_order ASC")
 		}).
@@ -118,6 +122,17 @@ func (r *PostRepo) Search(q string, page, pageSize int) ([]model.Post, error) {
 		Limit(pageSize).Offset((page - 1) * pageSize).
 		Find(&posts).Error
 	return posts, err
+}
+
+func (r *PostRepo) Update(postID uint, title, content string) error {
+	return r.db.Model(&model.Post{}).Where("id = ?", postID).Updates(map[string]interface{}{
+		"title":   title,
+		"content": content,
+	}).Error
+}
+
+func (r *PostRepo) Delete(postID uint) error {
+	return r.db.Delete(&model.Post{}, postID).Error
 }
 
 func (r *PostRepo) ListByUser(userID uint, page, pageSize int) ([]model.Post, error) {

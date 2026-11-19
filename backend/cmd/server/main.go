@@ -23,7 +23,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := db.AutoMigrate(&model.User{}, &model.Post{}, &model.PostImage{}, &model.Like{}, &model.Favorite{}, &model.Comment{}, &model.Follow{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Post{}, &model.PostImage{}, &model.Like{}, &model.Favorite{}, &model.Comment{}, &model.Follow{}, &model.Topic{}, &model.PostTopic{}); err != nil {
 		slog.Error("failed to migrate", "error", err)
 		os.Exit(1)
 	}

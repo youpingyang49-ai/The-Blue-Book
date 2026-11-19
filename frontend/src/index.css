@@ -156,6 +156,21 @@ input:focus, textarea:focus {
   padding-bottom: 70px;
 }
 
+.topic-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.topic-tag {
+  color: #ff2442;
+  background: #fff0f2;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+
 .sort-tabs {
   display: flex;
   gap: 16px;

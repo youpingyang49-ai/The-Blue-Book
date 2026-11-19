@@ -6,6 +6,7 @@ import PostDetail from "./pages/PostDetail";
 import Search from "./pages/Search";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
+import EditPost from "./pages/EditPost";
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/create" element={<CreatePost />} />
         <Route path="/post/:id" element={<PostDetail />} />
+        <Route path="/edit/:id" element={<EditPost />} />
         <Route path="/search" element={<Search />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/user/:id" element={<UserProfile />} />

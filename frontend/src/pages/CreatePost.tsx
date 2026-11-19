@@ -15,6 +15,7 @@ export default function CreatePost() {
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState("");
+  const [topicsText, setTopicsText] = useState("");
   const navigate = useNavigate();
 
   const onPickFiles = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -40,7 +41,8 @@ export default function CreatePost() {
       return;
     }
     try {
-      await api.createPost({ title, content, image_keys: images.map((i) => i.key) });
+      const topics = topicsText.split(/[，, ]+/).filter((t) => t.length > 0);
+      await api.createPost({ title, content, image_keys: images.map((i) => i.key), topics });
       navigate("/");
     } catch (e: any) {
       setMsg(e.message);
@@ -56,6 +58,7 @@ export default function CreatePost() {
       <div className="form">
         <input placeholder="标题" value={title} onChange={(e) => setTitle(e.target.value)} />
         <textarea placeholder="分享你的内容..." value={content} onChange={(e) => setContent(e.target.value)} />
+        <input placeholder="话题（逗号或空格分隔，如：美食 探店）" value={topicsText} onChange={(e) => setTopicsText(e.target.value)} />
       </div>
       <label className="upload-btn">
         {uploading ? "上传中..." : "选择图片（可多选）"}

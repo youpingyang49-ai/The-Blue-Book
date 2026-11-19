@@ -33,8 +33,11 @@ export const api = {
   feed: (sort = "latest", page = 1) =>
     request("/posts?sort=" + sort + "&page=" + page + "&page_size=20"),
   postDetail: (id: number) => request("/posts/" + id),
-  createPost: (data: { title: string; content: string; image_keys: string[] }) =>
+  createPost: (data: { title: string; content: string; image_keys: string[]; topics?: string[] }) =>
     request("/posts", { method: "POST", body: JSON.stringify(data) }),
+  updatePost: (id: number, data: { title: string; content: string }) =>
+    request("/posts/" + id, { method: "PUT", body: JSON.stringify(data) }),
+  deletePost: (id: number) => request("/posts/" + id, { method: "DELETE" }),
   like: (id: number) => request("/posts/" + id + "/like", { method: "POST" }),
   unlike: (id: number) => request("/posts/" + id + "/like", { method: "DELETE" }),
   upload: (file: File) => {
