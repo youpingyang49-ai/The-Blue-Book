@@ -151,7 +151,13 @@ func (s *PostService) buildDTOs(ctx context.Context, posts []model.Post, viewerI
 }
 
 func (s *PostService) Feed(ctx context.Context, sort string, page, pageSize int, viewerID uint) ([]PostDTO, error) {
-	posts, err := s.postRepo.List(repository.ListParams{Sort: sort, Page: page, PageSize: pageSize})
+	var posts []model.Post
+	var err error
+	if sort == "recommend" {
+		posts, err = s.postRepo.RecommendList(viewerID, page, pageSize)
+	} else {
+		posts, err = s.postRepo.List(repository.ListParams{Sort: sort, Page: page, PageSize: pageSize})
+	}
 	if err != nil {
 		return nil, err
 	}

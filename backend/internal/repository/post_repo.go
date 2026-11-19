@@ -2,6 +2,8 @@ package repository
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -49,8 +51,6 @@ func (r *PostRepo) List(params ListParams) ([]model.Post, error) {
 	switch params.Sort {
 	case "hot":
 		q = q.Order("like_count DESC").Order("id DESC")
-	case "recommend":
-		q = q.Order("(like_count * 3 + favorite_count * 2 + comment_count * 2) / POW(TIMESTAMPDIFF(HOUR, created_at, NOW()) + 2, 0.6) DESC").Order("id DESC")
 	default:
 		q = q.Order("id DESC")
 	}
@@ -242,5 +242,53 @@ func (r *PostRepo) ListByFollowees(followerID uint, page, pageSize int) ([]model
 		Order("posts.id DESC").
 		Limit(pageSize).Offset((page - 1) * pageSize).
 		Find(&posts).Error
+	return posts, err
+}
+
+// InterestTopicIDs 返回用户互动过（赞/藏/评）的帖子所带的话题 ID，作为个性化兴趣信号。
+func (r *PostRepo) InterestTopicIDs(userID uint) ([]uint, error) {
+	var ids []uint
+	err := r.db.Raw(`
+		SELECT DISTINCT pt.topic_id
+		FROM post_topics pt
+		WHERE pt.post_id IN (
+			SELECT post_id FROM likes WHERE user_id = ?
+			UNION
+			SELECT post_id FROM favorites WHERE user_id = ?
+			UNION
+			SELECT post_id FROM comments WHERE user_id = ?
+		)
+	`, userID, userID, userID).Scan(&ids).Error
+	return ids, err
+}
+
+// RecommendList 推荐排序：热度(对数压缩+时间衰减) + 冷启动兜底 + 兴趣话题加权。
+func (r *PostRepo) RecommendList(viewerID uint, page, pageSize int) ([]model.Post, error) {
+	interestIDs, err := r.InterestTopicIDs(viewerID)
+	if err != nil {
+		interestIDs = nil // 降级：无个性化
+	}
+
+	base := "(LOG(like_count + 1) * 3 + LOG(favorite_count + 1) * 2 + LOG(comment_count + 1) * 2 + 2) / POW(TIMESTAMPDIFF(HOUR, created_at, NOW()) + 2, 0.8)"
+
+	q := r.db.Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
+		return db.Order("sort_order ASC")
+	})
+
+	if len(interestIDs) > 0 {
+		ids := make([]string, len(interestIDs))
+		for i, id := range interestIDs {
+			ids[i] = strconv.FormatUint(uint64(id), 10)
+		}
+		inClause := strings.Join(ids, ",")
+		boost := "(SELECT COUNT(*) FROM post_topics WHERE post_topics.post_id = posts.id AND post_topics.topic_id IN (" + inClause + ")) * 5"
+		q = q.Order("(" + base + " + " + boost + ") DESC").Order("id DESC")
+	} else {
+		q = q.Order(base + " DESC").Order("id DESC")
+	}
+
+	var posts []model.Post
+	offset := (page - 1) * pageSize
+	err = q.Limit(pageSize).Offset(offset).Find(&posts).Error
 	return posts, err
 }
