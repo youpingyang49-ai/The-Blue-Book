@@ -92,6 +92,7 @@
 
 - 手机号 + 短信验证码登录，未注册自动创建账号
 - JWT 双 Token（Access / Refresh）
+- Access Token 过期后自动使用 Refresh Token 静默续期（令牌轮换），失败才跳登录
 - 未登录访问受限页面自动跳转登录，登录后回跳原目标
 - 刷新页面保持登录态，退出登录清理本地状态
 
@@ -300,6 +301,7 @@ The-Blue-Book/
 | --- | --- | --- |
 | POST | `/auth/send-code` | 发送短信验证码（开发环境返回 `debug_code`） |
 | POST | `/auth/login` | 验证码登录，返回 `access_token` / `refresh_token` |
+| POST | `/auth/refresh` | 用 `refresh_token` 换取新的 access / refresh token |
 
 </details>
 
