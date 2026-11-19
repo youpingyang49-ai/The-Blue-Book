@@ -61,7 +61,7 @@ func (s *CommentService) Create(ctx context.Context, userID, postID, parentID ui
 		PostID:    c.PostID,
 		ParentID:  c.ParentID,
 		Content:   c.Content,
-		Author:    AuthorDTO{ID: c.User.ID, Nickname: c.User.Nickname},
+		Author:    AuthorDTO{ID: c.User.ID, Nickname: c.User.Nickname, AvatarURL: c.User.AvatarURL},
 		CreatedAt: c.CreatedAt,
 	}, nil
 }
@@ -102,7 +102,7 @@ func (s *CommentService) List(ctx context.Context, postID uint) ([]CommentDTO, e
 			PostID:    c.PostID,
 			ParentID:  c.ParentID,
 			Content:   c.Content,
-			Author:    AuthorDTO{ID: c.User.ID, Nickname: c.User.Nickname},
+			Author:    AuthorDTO{ID: c.User.ID, Nickname: c.User.Nickname, AvatarURL: c.User.AvatarURL},
 			CreatedAt: c.CreatedAt,
 		}
 		if c.ParentID != 0 {

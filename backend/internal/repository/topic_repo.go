@@ -40,6 +40,32 @@ func (r *TopicRepo) IncrementCount(topicID uint) error {
 	return r.db.Model(&model.Topic{}).Where("id = ?", topicID).UpdateColumn("post_count", gorm.Expr("post_count + 1")).Error
 }
 
+// ListNamesByPostIDs 批量取帖子的话题名，避免列表接口 N+1 查询。
+func (r *TopicRepo) ListNamesByPostIDs(postIDs []uint) (map[uint][]string, error) {
+	out := make(map[uint][]string, len(postIDs))
+	if len(postIDs) == 0 {
+		return out, nil
+	}
+	type row struct {
+		PostID uint
+		Name   string
+	}
+	var rows []row
+	err := r.db.Table("post_topics").
+		Select("post_topics.post_id AS post_id, topics.name AS name").
+		Joins("JOIN topics ON topics.id = post_topics.topic_id").
+		Where("post_topics.post_id IN ?", postIDs).
+		Order("topics.id ASC").
+		Scan(&rows).Error
+	if err != nil {
+		return out, err
+	}
+	for _, rw := range rows {
+		out[rw.PostID] = append(out[rw.PostID], rw.Name)
+	}
+	return out, nil
+}
+
 func (r *TopicRepo) ListByPost(postID uint) ([]model.Topic, error) {
 	var topics []model.Topic
 	err := r.db.Joins("JOIN post_topics ON post_topics.topic_id = topics.id").

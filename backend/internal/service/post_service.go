@@ -123,6 +123,11 @@ func (s *PostService) buildDTOs(ctx context.Context, posts []model.Post, viewerI
 		}
 	}
 
+	topicMap, err := s.topicRepo.ListNamesByPostIDs(postIDs)
+	if err != nil {
+		topicMap = nil // 话题仅用于展示，取不到不影响主流程
+	}
+
 	dtos := make([]PostDTO, 0, len(posts))
 	for _, p := range posts {
 		dto := PostDTO{
@@ -132,9 +137,11 @@ func (s *PostService) buildDTOs(ctx context.Context, posts []model.Post, viewerI
 			FavoriteCount: p.FavoriteCount,
 			CommentCount:  p.CommentCount,
 			CreatedAt:     p.CreatedAt,
+			Topics:        topicMap[p.ID],
 			Author: AuthorDTO{
-				ID:       p.User.ID,
-				Nickname: p.User.Nickname,
+				ID:        p.User.ID,
+				Nickname:  p.User.Nickname,
+				AvatarURL: p.User.AvatarURL,
 			},
 		}
 		if len(p.Images) > 0 {
@@ -230,8 +237,9 @@ func (s *PostService) Detail(ctx context.Context, postID, viewerID uint) (*PostD
 		CommentCount:  post.CommentCount,
 		CreatedAt:     post.CreatedAt,
 		Author: AuthorDTO{
-			ID:       post.User.ID,
-			Nickname: post.User.Nickname,
+			ID:        post.User.ID,
+			Nickname:  post.User.Nickname,
+			AvatarURL: post.User.AvatarURL,
 		},
 	}
 	for _, img := range post.Images {
