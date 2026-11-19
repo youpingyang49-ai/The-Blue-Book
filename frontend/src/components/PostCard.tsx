@@ -14,6 +14,7 @@ export default function PostCard({ post }: { post: PostItem }) {
   return (
     <div className="post-card" onClick={() => navigate("/post/" + post.id)}>
       <img className="post-cover" src={post.cover_image_url} alt={post.title} />
+      <p className="post-title">{post.title}</p>
       <div className="post-meta">
         <div className="avatar">{post.author.nickname.charAt(0)}</div>
         <span className="nickname">{post.author.nickname}</span>

@@ -11,7 +11,7 @@ body {
 }
 
 #root {
-  max-width: 480px;
+  max-width: 1440px;
   margin: 0 auto;
   background: #fff;
   min-height: 100vh;
@@ -111,7 +111,7 @@ input:focus, textarea:focus {
 
 .share-sheet {
   width: 100%;
-  max-width: 480px;
+  max-width: 600px;
   background: #fff;
   border-radius: 16px 16px 0 0;
   padding: 8px 16px 16px;
@@ -332,24 +332,35 @@ input:focus, textarea:focus {
 }
 
 .waterfall {
-  column-count: 2;
-  column-gap: 10px;
-  padding: 0 10px 70px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  padding: 16px 20px 80px;
 }
 
 .post-card {
-  break-inside: avoid;
-  margin-bottom: 10px;
   border-radius: 10px;
   overflow: hidden;
   background: #fff;
   cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .post-cover {
   width: 100%;
   display: block;
   background: #eee;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+
+.post-title {
+  font-size: 14px;
+  color: #333;
+  padding: 8px 8px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .post-meta {
@@ -583,7 +594,7 @@ input:focus, textarea:focus {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 480px;
+  max-width: 1440px;
   display: flex;
   background: #fff;
   border-top: 1px solid #eee;
@@ -633,4 +644,22 @@ input:focus, textarea:focus {
   background: #f2f2f2;
   border: none;
   border-radius: 20px;
+}
+
+@media (max-width: 1200px) {
+  .waterfall {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .waterfall {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .waterfall {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
