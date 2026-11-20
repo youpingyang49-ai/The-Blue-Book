@@ -101,6 +101,8 @@ export const api = {
   },
   search: (q: string, page = 1) =>
     request("/search?q=" + encodeURIComponent(q) + "&page=" + page + "&page_size=20"),
+  searchUsers: (q: string, page = 1) =>
+    request("/search/users?q=" + encodeURIComponent(q) + "&page=" + page + "&page_size=20"),
   myPosts: (page = 1) => request("/users/me/posts?page=" + page + "&page_size=20"),
   myLikes: (page = 1) => request("/users/me/likes?page=" + page + "&page_size=20"),
   myFavorites: (page = 1) => request("/users/me/favorites?page=" + page + "&page_size=20"),
