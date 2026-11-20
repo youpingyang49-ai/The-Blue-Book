@@ -25,7 +25,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       try {
         const result: any = await api.unreadCount();
         if (!alive) return;
-        const value = result?.count ?? result?.unread_count ?? result?.unread ?? 0;
+        const value = result?.total ?? result?.count ?? 0;
         setUnread(Number(value) || 0);
       } catch {
         /* silent: badge is optional */
@@ -33,9 +33,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
     };
     load();
     const timer = window.setInterval(load, 30000);
+    const onUpdate = () => {
+      load();
+    };
+    window.addEventListener("notifications-updated", onUpdate);
     return () => {
       alive = false;
       window.clearInterval(timer);
+      window.removeEventListener("notifications-updated", onUpdate);
     };
   }, [token, location.pathname]);
 

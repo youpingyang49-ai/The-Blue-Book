@@ -125,5 +125,9 @@ export const api = {
   deleteConversation: (id: number) => request("/messages/" + id, { method: "DELETE" }),
   hideConversation: (id: number) => request("/conversations/" + id + "/hide", { method: "POST" }),
   unreadCount: () => request("/notifications/unread-count"),
-  markNotificationsRead: () => request("/notifications/read", { method: "POST" }),
+  markNotificationsRead: (types?: string[]) =>
+    request("/notifications/read", {
+      method: "POST",
+      body: types && types.length > 0 ? JSON.stringify({ types }) : undefined,
+    }),
 };

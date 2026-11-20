@@ -27,6 +27,11 @@ interface ConvItem {
   created_at?: string;
 }
 
+interface UnreadStats {
+  by_type: Record<string, number>;
+  dm: number;
+}
+
 const TYPE_TEXT: Record<string, string> = {
   like: "赞了你的笔记",
   favorite: "收藏了你的笔记",
@@ -64,11 +69,21 @@ export default function Notifications() {
   const [tab, setTab] = useState(initial);
   const [notifs, setNotifs] = useState<NotifItem[]>([]);
   const [convs, setConvs] = useState<ConvItem[]>([]);
+  const [stats, setStats] = useState<UnreadStats>({ by_type: {}, dm: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionConv, setActionConv] = useState<ConvItem | null>(null);
 
   const isDm = tab === "dm";
+
+  const loadStats = useCallback(async () => {
+    try {
+      const result: any = await api.unreadCount();
+      setStats({ by_type: result?.by_type || {}, dm: Number(result?.dm) || 0 });
+    } catch {
+      /* 统计失败不阻塞列表 */
+    }
+  }, []);
 
   const load = useCallback(
     async (tabKey: string) => {
@@ -86,6 +101,16 @@ export default function Notifications() {
           const type = TABS.find((item) => item.key === tabKey)?.type || "";
           const result = await api.notifications(type);
           setNotifs(result.items || []);
+          // 查看即已读：保留本次列表里的未读标识，但服务端与本页角标立即清零
+          if (type) {
+            try {
+              await api.markNotificationsRead(type.split(","));
+              await loadStats();
+              window.dispatchEvent(new Event("notifications-updated"));
+            } catch {
+              /* 标记失败不阻塞展示 */
+            }
+          }
         }
       } catch (err: any) {
         setError(err?.message || "消息加载失败");
@@ -93,8 +118,12 @@ export default function Notifications() {
         setLoading(false);
       }
     },
-    [token]
+    [token, loadStats]
   );
+
+  useEffect(() => {
+    if (token) loadStats();
+  }, [token, loadStats]);
 
   useEffect(() => {
     load(tab);
@@ -106,10 +135,18 @@ export default function Notifications() {
     else setParams({});
   };
 
+  const tabCount = (key: string) => {
+    if (key === "dm") return stats.dm;
+    if (key === "like") return (stats.by_type.like || 0) + (stats.by_type.favorite || 0);
+    return stats.by_type[key] || 0;
+  };
+
   const markAll = async () => {
     try {
       await api.markNotificationsRead();
       setNotifs((prev) => prev.map((item) => ({ ...item, read: true })));
+      setStats((prev) => ({ ...prev, by_type: {} }));
+      window.dispatchEvent(new Event("notifications-updated"));
       toast("已全部标为已读");
     } catch (err: any) {
       toast(err?.message || "操作失败", "error");
@@ -123,7 +160,9 @@ export default function Notifications() {
       if (action === "hide") await api.hideConversation(actionConv.user_id);
       if (action === "delete") await api.deleteConversation(actionConv.user_id);
       setActionConv(null);
-      load("dm");
+      await load("dm");
+      await loadStats();
+      window.dispatchEvent(new Event("notifications-updated"));
       toast("操作成功");
     } catch (err: any) {
       toast(err?.message || "操作失败", "error");
@@ -162,16 +201,20 @@ export default function Notifications() {
         </div>
 
         <div className="tabs" style={{ borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>
-          {TABS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`tab ${tab === item.key ? "active" : ""}`}
-              onClick={() => switchTab(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
+          {TABS.map((item) => {
+            const count = tabCount(item.key);
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={`tab ${tab === item.key ? "active" : ""}`}
+                onClick={() => switchTab(item.key)}
+              >
+                {item.label}
+                {count > 0 ? <span className="tab-badge">{count > 99 ? "99+" : count}</span> : null}
+              </button>
+            );
+          })}
         </div>
 
         <div className="msg-layout">

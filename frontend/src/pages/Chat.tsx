@@ -44,6 +44,8 @@ export default function Chat() {
     try {
       const result = await api.conversation(peerId);
       setMsgs(result.items || []);
+      // 会话已读后刷新侧栏未读角标
+      window.dispatchEvent(new Event("notifications-updated"));
     } catch (err: any) {
       toast(err?.message || "会话加载失败", "error");
     } finally {
