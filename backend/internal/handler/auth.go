@@ -93,11 +93,14 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	}
 	access, refresh, user, err := h.auth.Refresh(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		if err == service.ErrSessionExpired {
+		switch {
+		case err == service.ErrSessionReused:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "检测到登录凭证被重复使用，请重新登录"})
+		case err == service.ErrSessionExpired:
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "登录已过期，请重新登录"})
-			return
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "刷新失败"})
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "刷新失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -106,6 +109,21 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		"token_type":    "Bearer",
 		"user":          user,
 	})
+}
+
+type logoutReq struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+// Logout 吊销 refresh token 所属的令牌家族；无效 token 也返回成功（幂等）。
+func (h *AuthHandler) Logout(c *gin.Context) {
+	var req logoutReq
+	_ = c.ShouldBindJSON(&req)
+	if err := h.auth.Logout(c.Request.Context(), req.RefreshToken); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "退出失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "已退出登录"})
 }
 
 func validPhone(phone string) bool {

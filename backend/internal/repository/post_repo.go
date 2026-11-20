@@ -4,11 +4,15 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/model"
 )
+
+// hotOrderSQL 与 Redis 榜单使用同一套热度公式，保证降级时排序基本一致。
+const hotOrderSQL = "(LOG(like_count + 1) * 3 + LOG(favorite_count + 1) * 2 + LOG(comment_count + 1) * 2 + 2) / POW(TIMESTAMPDIFF(HOUR, created_at, NOW()) + 2, 0.8)"
 
 type PostRepo struct {
 	db *gorm.DB
@@ -50,7 +54,7 @@ func (r *PostRepo) List(params ListParams) ([]model.Post, error) {
 
 	switch params.Sort {
 	case "hot":
-		q = q.Order("like_count DESC").Order("id DESC")
+		q = q.Order(hotOrderSQL + " DESC").Order("id DESC")
 	default:
 		q = q.Order("id DESC")
 	}
@@ -126,8 +130,8 @@ func (r *PostRepo) Search(q string, page, pageSize int) ([]model.Post, error) {
 		Where("topics.name LIKE ?", like)
 	err := r.db.Where("title LIKE ? OR content LIKE ? OR id IN (?)", like, like, subQuery).
 		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
-			return db.Order("sort_order ASC")
-		}).
+		return db.Order("sort_order ASC")
+	}).
 		Order("id DESC").
 		Limit(pageSize).Offset((page - 1) * pageSize).
 		Find(&posts).Error
@@ -149,8 +153,8 @@ func (r *PostRepo) ListByUser(userID uint, page, pageSize int) ([]model.Post, er
 	var posts []model.Post
 	err := r.db.Where("user_id = ?", userID).
 		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
-			return db.Order("sort_order ASC")
-		}).
+		return db.Order("sort_order ASC")
+	}).
 		Order("id DESC").
 		Limit(pageSize).Offset((page - 1) * pageSize).
 		Find(&posts).Error
@@ -162,8 +166,8 @@ func (r *PostRepo) ListLikedByUser(userID uint, page, pageSize int) ([]model.Pos
 	err := r.db.Joins("JOIN likes ON likes.post_id = posts.id").
 		Where("likes.user_id = ?", userID).
 		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
-			return db.Order("sort_order ASC")
-		}).
+		return db.Order("sort_order ASC")
+	}).
 		Order("likes.created_at DESC").
 		Limit(pageSize).Offset((page - 1) * pageSize).
 		Find(&posts).Error
@@ -209,8 +213,8 @@ func (r *PostRepo) ListFavoritedByUser(userID uint, page, pageSize int) ([]model
 	err := r.db.Joins("JOIN favorites ON favorites.post_id = posts.id").
 		Where("favorites.user_id = ?", userID).
 		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
-			return db.Order("sort_order ASC")
-		}).
+		return db.Order("sort_order ASC")
+	}).
 		Order("favorites.created_at DESC").
 		Limit(pageSize).Offset((page - 1) * pageSize).
 		Find(&posts).Error
@@ -237,8 +241,8 @@ func (r *PostRepo) ListByFollowees(followerID uint, page, pageSize int) ([]model
 	err := r.db.Joins("JOIN follows ON follows.followee_id = posts.user_id").
 		Where("follows.follower_id = ?", followerID).
 		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
-			return db.Order("sort_order ASC")
-		}).
+		return db.Order("sort_order ASC")
+	}).
 		Order("posts.id DESC").
 		Limit(pageSize).Offset((page - 1) * pageSize).
 		Find(&posts).Error
@@ -269,7 +273,7 @@ func (r *PostRepo) RecommendList(viewerID uint, page, pageSize int) ([]model.Pos
 		interestIDs = nil // 降级：无个性化
 	}
 
-	base := "(LOG(like_count + 1) * 3 + LOG(favorite_count + 1) * 2 + LOG(comment_count + 1) * 2 + 2) / POW(TIMESTAMPDIFF(HOUR, created_at, NOW()) + 2, 0.8)"
+	base := hotOrderSQL
 
 	q := r.db.Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
 		return db.Order("sort_order ASC")
@@ -290,5 +294,97 @@ func (r *PostRepo) RecommendList(viewerID uint, page, pageSize int) ([]model.Pos
 	var posts []model.Post
 	offset := (page - 1) * pageSize
 	err = q.Limit(pageSize).Offset(offset).Find(&posts).Error
+	return posts, err
+}
+
+// RankSnapshot 是重算榜单所需的最小字段集。
+type RankSnapshot struct {
+	ID            uint
+	UserID        uint
+	LikeCount     int64
+	FavoriteCount int64
+	CommentCount  int64
+	CreatedAt     time.Time
+}
+
+// RankSnapshots 批量取笔记的互动计数与发布时间。
+func (r *PostRepo) RankSnapshots(ids []uint) ([]RankSnapshot, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var rows []RankSnapshot
+	err := r.db.Model(&model.Post{}).
+		Select("id, user_id, like_count, favorite_count, comment_count, created_at").
+		Where("id IN ?", ids).
+		Scan(&rows).Error
+	return rows, err
+}
+
+// RankCandidates 返回回填榜单的候选集：最近发布的笔记 + 历史互动量最高的笔记。
+func (r *PostRepo) RankCandidates(recentDays, recentLimit, signalLimit int) ([]RankSnapshot, error) {
+	if recentDays <= 0 {
+		recentDays = 30
+	}
+	recent := make([]RankSnapshot, 0, recentLimit)
+	if err := r.db.Model(&model.Post{}).
+		Select("id, user_id, like_count, favorite_count, comment_count, created_at").
+		Where("created_at >= ?", time.Now().AddDate(0, 0, -recentDays)).
+		Order("id DESC").
+		Limit(recentLimit).
+		Scan(&recent).Error; err != nil {
+		return nil, err
+	}
+
+	top := make([]RankSnapshot, 0, signalLimit)
+	if err := r.db.Model(&model.Post{}).
+		Select("id, user_id, like_count, favorite_count, comment_count, created_at").
+		Order("(like_count * 3 + favorite_count * 2 + comment_count * 2) DESC").
+		Order("id DESC").
+		Limit(signalLimit).
+		Scan(&top).Error; err != nil {
+		return nil, err
+	}
+
+	seen := make(map[uint]struct{}, len(recent)+len(top))
+	rows := make([]RankSnapshot, 0, len(recent)+len(top))
+	for _, list := range [][]RankSnapshot{recent, top} {
+		for _, row := range list {
+			if _, ok := seen[row.ID]; ok {
+				continue
+			}
+			seen[row.ID] = struct{}{}
+			rows = append(rows, row)
+		}
+	}
+	return rows, nil
+}
+
+// ListByIDs 按 ID 批量取笔记（含作者与图片），调用方负责恢复顺序。
+func (r *PostRepo) ListByIDs(ids []uint) ([]model.Post, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var posts []model.Post
+	err := r.db.Where("id IN ?", ids).
+		Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
+		return db.Order("sort_order ASC")
+	}).
+		Find(&posts).Error
+	return posts, err
+}
+
+// TopBySignal 降级用：无法访问 Redis 时按互动总量取笔记。
+func (r *PostRepo) TopBySignal(limit int) ([]model.Post, error) {
+	var posts []model.Post
+	if limit <= 0 {
+		return posts, nil
+	}
+	err := r.db.Preload("User").Preload("Images", func(db *gorm.DB) *gorm.DB {
+		return db.Order("sort_order ASC")
+	}).
+		Order("(like_count * 3 + favorite_count * 2 + comment_count * 2) DESC").
+		Order("id DESC").
+		Limit(limit).
+		Find(&posts).Error
 	return posts, err
 }

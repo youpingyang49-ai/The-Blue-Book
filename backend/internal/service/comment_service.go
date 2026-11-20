@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"regexp"
 	"time"
 
@@ -14,10 +15,11 @@ type CommentService struct {
 	postRepo    *repository.PostRepo
 	userRepo    *repository.UserRepo
 	notifSvc    *NotificationService
+	ranking     *RankingService
 }
 
-func NewCommentService(commentRepo *repository.CommentRepo, postRepo *repository.PostRepo, userRepo *repository.UserRepo, notifSvc *NotificationService) *CommentService {
-	return &CommentService{commentRepo: commentRepo, postRepo: postRepo, userRepo: userRepo, notifSvc: notifSvc}
+func NewCommentService(commentRepo *repository.CommentRepo, postRepo *repository.PostRepo, userRepo *repository.UserRepo, notifSvc *NotificationService, ranking *RankingService) *CommentService {
+	return &CommentService{commentRepo: commentRepo, postRepo: postRepo, userRepo: userRepo, notifSvc: notifSvc, ranking: ranking}
 }
 
 type CommentDTO struct {
@@ -52,6 +54,11 @@ func (s *CommentService) Create(ctx context.Context, userID, postID, parentID ui
 		}
 	}
 	s.notifyMentions(ctx, userID, postID, content)
+	if s.ranking != nil {
+		if err := s.ranking.TouchPost(ctx, postID); err != nil {
+			slog.Warn("ranking touch failed", "post_id", postID, "error", err)
+		}
+	}
 	c, err := s.commentRepo.FindByID(comment.ID)
 	if err != nil {
 		return nil, err

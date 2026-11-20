@@ -72,3 +72,30 @@ func (r *UserRepo) Search(q string, page, pageSize int) ([]model.User, int64, er
 		Find(&users).Error
 	return users, total, err
 }
+
+// FindByIDs 批量取用户，供榜单补全昵称与头像。
+func (r *UserRepo) FindByIDs(ids []uint) ([]model.User, error) {
+	var users []model.User
+	if len(ids) == 0 {
+		return users, nil
+	}
+	err := r.db.Where("id IN ?", ids).Find(&users).Error
+	return users, err
+}
+
+// TopByFollowerCount 降级用：无法访问 Redis 时按粉丝数取创作者。
+func (r *UserRepo) TopByFollowerCount(limit int) ([]model.User, error) {
+	var users []model.User
+	if limit <= 0 {
+		return users, nil
+	}
+	err := r.db.Model(&model.User{}).
+		Select("users.*").
+		Joins("JOIN follows ON follows.followee_id = users.id").
+		Group("users.id").
+		Order("COUNT(follows.id) DESC").
+		Order("users.id ASC").
+		Limit(limit).
+		Find(&users).Error
+	return users, err
+}

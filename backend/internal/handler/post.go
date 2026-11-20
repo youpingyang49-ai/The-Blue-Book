@@ -74,6 +74,18 @@ func (h *PostHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": dtos, "page": page, "page_size": pageSize})
 }
 
+// Rankings 返回笔记 / 话题 / 创作者榜单。
+func (h *PostHandler) Rankings(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	viewerID := c.GetUint("userID")
+	dto, err := h.post.Rankings(c.Request.Context(), viewerID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
+		return
+	}
+	c.JSON(http.StatusOK, dto)
+}
+
 func (h *PostHandler) Detail(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

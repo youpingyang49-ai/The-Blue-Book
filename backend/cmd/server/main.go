@@ -44,7 +44,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	jwtMgr := jwt.NewManager(cfg.JWTSecret)
+	jwtMgr := jwt.NewManager(cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 
 	// RabbitMQ（可选，连不上则降级为同步通知）
 	var mqClient *mq.Client

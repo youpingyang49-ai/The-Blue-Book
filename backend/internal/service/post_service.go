@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/model"
+	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/pkg/rank"
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/pkg/storage"
 	"github.com/youpingyang49-ai/The-Blue-Book/backend/internal/repository"
 )
@@ -20,12 +22,22 @@ type PostService struct {
 	postRepo   *repository.PostRepo
 	followRepo *repository.FollowRepo
 	topicRepo  *repository.TopicRepo
+	userRepo   *repository.UserRepo
 	notifSvc   *NotificationService
 	storage    storage.Storage
+	ranking    *RankingService
 }
 
-func NewPostService(postRepo *repository.PostRepo, followRepo *repository.FollowRepo, topicRepo *repository.TopicRepo, notifSvc *NotificationService, st storage.Storage) *PostService {
-	return &PostService{postRepo: postRepo, followRepo: followRepo, topicRepo: topicRepo, notifSvc: notifSvc, storage: st}
+func NewPostService(postRepo *repository.PostRepo, followRepo *repository.FollowRepo, topicRepo *repository.TopicRepo, userRepo *repository.UserRepo, notifSvc *NotificationService, st storage.Storage, ranking *RankingService) *PostService {
+	return &PostService{
+		postRepo:   postRepo,
+		followRepo: followRepo,
+		topicRepo:  topicRepo,
+		userRepo:   userRepo,
+		notifSvc:   notifSvc,
+		storage:    st,
+		ranking:    ranking,
+	}
 }
 
 type AuthorDTO struct {
@@ -77,6 +89,7 @@ func (s *PostService) Create(ctx context.Context, userID uint, title, content st
 		}
 		_ = s.topicRepo.IncrementCount(topic.ID)
 	}
+	s.touchRank(ctx, post.ID)
 	return post, nil
 }
 
@@ -105,7 +118,15 @@ func (s *PostService) Delete(ctx context.Context, userID, postID uint) error {
 	if post.UserID != userID {
 		return ErrForbidden
 	}
-	return s.postRepo.Delete(postID)
+	if err := s.postRepo.Delete(postID); err != nil {
+		return err
+	}
+	if s.ranking != nil {
+		if err := s.ranking.RemovePost(ctx, postID); err != nil {
+			slog.Warn("ranking remove failed", "post_id", postID, "error", err)
+		}
+	}
+	return nil
 }
 
 func (s *PostService) buildDTOs(ctx context.Context, posts []model.Post, viewerID uint) ([]PostDTO, error) {
@@ -158,6 +179,33 @@ func (s *PostService) buildDTOs(ctx context.Context, posts []model.Post, viewerI
 }
 
 func (s *PostService) Feed(ctx context.Context, sort string, page, pageSize int, viewerID uint) ([]PostDTO, error) {
+	offset := (page - 1) * pageSize
+
+	// 推荐 / 热门走 Redis ZSet 榜单；Redis 不可用或榜单为空时回退 MySQL。
+	if s.ranking != nil {
+		switch sort {
+		case "hot":
+			if ids, ok := s.ranking.HotPostIDs(ctx, offset, pageSize); ok {
+				if posts, err := s.postRepo.ListByIDs(ids); err == nil {
+					if ordered := orderPostsByIDs(posts, ids); len(ordered) > 0 {
+						return s.buildDTOs(ctx, ordered, viewerID)
+					}
+				}
+			}
+		case "recommend":
+			if ids, ok := s.ranking.RecommendPostIDs(ctx, viewerID, offset, pageSize); ok {
+				if len(ids) == 0 {
+					return []PostDTO{}, nil
+				}
+				if posts, err := s.postRepo.ListByIDs(ids); err == nil {
+					if ordered := orderPostsByIDs(posts, ids); len(ordered) > 0 {
+						return s.buildDTOs(ctx, ordered, viewerID)
+					}
+				}
+			}
+		}
+	}
+
 	var posts []model.Post
 	var err error
 	if sort == "recommend" {
@@ -273,13 +321,21 @@ func (s *PostService) Like(ctx context.Context, userID, postID uint) (bool, erro
 		return false, err
 	}
 	if liked {
+		s.touchRank(ctx, postID)
 		s.notifyPostAction(ctx, userID, postID, "like", "")
 	}
 	return liked, nil
 }
 
 func (s *PostService) Unlike(ctx context.Context, userID, postID uint) (bool, error) {
-	return s.postRepo.Unlike(userID, postID)
+	unliked, err := s.postRepo.Unlike(userID, postID)
+	if err != nil {
+		return false, err
+	}
+	if unliked {
+		s.touchRank(ctx, postID)
+	}
+	return unliked, nil
 }
 
 func (s *PostService) Favorite(ctx context.Context, userID, postID uint) (bool, error) {
@@ -288,6 +344,7 @@ func (s *PostService) Favorite(ctx context.Context, userID, postID uint) (bool, 
 		return false, err
 	}
 	if favorited {
+		s.touchRank(ctx, postID)
 		s.notifyPostAction(ctx, userID, postID, "favorite", "")
 	}
 	return favorited, nil
@@ -305,5 +362,228 @@ func (s *PostService) notifyPostAction(ctx context.Context, actorID, postID uint
 }
 
 func (s *PostService) Unfavorite(ctx context.Context, userID, postID uint) (bool, error) {
-	return s.postRepo.Unfavorite(userID, postID)
+	unfavorited, err := s.postRepo.Unfavorite(userID, postID)
+	if err != nil {
+		return false, err
+	}
+	if unfavorited {
+		s.touchRank(ctx, postID)
+	}
+	return unfavorited, nil
+}
+
+// touchRank 在互动后刷新单篇笔记的榜单分数；失败只记日志，不影响主流程。
+func (s *PostService) touchRank(ctx context.Context, postID uint) {
+	if s.ranking == nil {
+		return
+	}
+	if err := s.ranking.TouchPost(ctx, postID); err != nil {
+		slog.Warn("ranking touch failed", "post_id", postID, "error", err)
+	}
+}
+
+// ------------------------------- 排行榜接口 -------------------------------
+
+type RankedPostDTO struct {
+	Rank int     `json:"rank"`
+	Heat int     `json:"heat"`
+	Post PostDTO `json:"post"`
+}
+
+type RankedTopicDTO struct {
+	Rank      int    `json:"rank"`
+	Heat      int    `json:"heat"`
+	ID        uint   `json:"id"`
+	Name      string `json:"name"`
+	PostCount int64  `json:"post_count"`
+}
+
+type RankedCreatorDTO struct {
+	Rank          int    `json:"rank"`
+	Heat          int    `json:"heat"`
+	ID            uint   `json:"id"`
+	Nickname      string `json:"nickname"`
+	AvatarURL     string `json:"avatar_url"`
+	Bio           string `json:"bio"`
+	FollowerCount int64  `json:"follower_count"`
+}
+
+type RankingsDTO struct {
+	Posts       []RankedPostDTO    `json:"posts"`
+	Topics      []RankedTopicDTO   `json:"topics"`
+	Creators    []RankedCreatorDTO `json:"creators"`
+	Source      string             `json:"source"`
+	GeneratedAt time.Time          `json:"generated_at"`
+}
+
+// Rankings 返回笔记 / 话题 / 创作者三个榜单。Redis 可用时读 ZSet，否则回退 MySQL。
+func (s *PostService) Rankings(ctx context.Context, viewerID uint, limit int) (*RankingsDTO, error) {
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	out := &RankingsDTO{
+		Posts:       []RankedPostDTO{},
+		Topics:      []RankedTopicDTO{},
+		Creators:    []RankedCreatorDTO{},
+		Source:      "mysql",
+		GeneratedAt: time.Now(),
+	}
+	if s.ranking != nil {
+		snapshot, err := s.ranking.Snapshot(ctx, limit, limit, limit)
+		if err == nil && len(snapshot.Posts) > 0 {
+			s.fillRankings(ctx, out, snapshot, viewerID)
+			out.Source = "redis"
+			out.GeneratedAt = snapshot.GeneratedAt
+			return out, nil
+		}
+	}
+	return s.rankingsFallback(ctx, out, viewerID, limit)
+}
+
+func (s *PostService) fillRankings(ctx context.Context, out *RankingsDTO, snapshot *BoardSnapshot, viewerID uint) {
+	postIDs := make([]uint, 0, len(snapshot.Posts))
+	for _, entry := range snapshot.Posts {
+		postIDs = append(postIDs, entry.ID)
+	}
+	if posts, err := s.postRepo.ListByIDs(postIDs); err == nil {
+		if dtos, err := s.buildDTOs(ctx, orderPostsByIDs(posts, postIDs), viewerID); err == nil {
+			byID := make(map[uint]PostDTO, len(dtos))
+			for _, dto := range dtos {
+				byID[dto.ID] = dto
+			}
+			top := snapshot.Posts[0].Score
+			for _, entry := range snapshot.Posts {
+				dto, ok := byID[entry.ID]
+				if !ok {
+					continue
+				}
+				out.Posts = append(out.Posts, RankedPostDTO{
+					Rank: len(out.Posts) + 1,
+					Heat: rank.Normalize(entry.Score, top),
+					Post: dto,
+				})
+			}
+		}
+	}
+
+	topicIDs := make([]uint, 0, len(snapshot.Topics))
+	for _, entry := range snapshot.Topics {
+		topicIDs = append(topicIDs, entry.ID)
+	}
+	if len(topicIDs) > 0 {
+		topics, err := s.topicRepo.FindByIDs(topicIDs)
+		if err == nil {
+			byID := make(map[uint]model.Topic, len(topics))
+			for _, t := range topics {
+				byID[t.ID] = t
+			}
+			top := snapshot.Topics[0].Score
+			for _, entry := range snapshot.Topics {
+				topic, ok := byID[entry.ID]
+				if !ok {
+					continue
+				}
+				out.Topics = append(out.Topics, RankedTopicDTO{
+					Rank:      len(out.Topics) + 1,
+					Heat:      rank.Normalize(entry.Score, top),
+					ID:        topic.ID,
+					Name:      topic.Name,
+					PostCount: topic.PostCount,
+				})
+			}
+		}
+	}
+
+	userIDs := make([]uint, 0, len(snapshot.Creators))
+	for _, entry := range snapshot.Creators {
+		userIDs = append(userIDs, entry.ID)
+	}
+	if len(userIDs) > 0 {
+		users, err := s.userRepo.FindByIDs(userIDs)
+		if err == nil {
+			counts, _ := s.followRepo.FollowerCounts(userIDs)
+			byID := make(map[uint]model.User, len(users))
+			for _, u := range users {
+				byID[u.ID] = u
+			}
+			top := snapshot.Creators[0].Score
+			for _, entry := range snapshot.Creators {
+				user, ok := byID[entry.ID]
+				if !ok {
+					continue
+				}
+				out.Creators = append(out.Creators, RankedCreatorDTO{
+					Rank:          len(out.Creators) + 1,
+					Heat:          rank.Normalize(entry.Score, top),
+					ID:            user.ID,
+					Nickname:      user.Nickname,
+					AvatarURL:     user.AvatarURL,
+					Bio:           user.Bio,
+					FollowerCount: counts[user.ID],
+				})
+			}
+		}
+	}
+}
+
+func (s *PostService) rankingsFallback(ctx context.Context, out *RankingsDTO, viewerID uint, limit int) (*RankingsDTO, error) {
+	posts, err := s.postRepo.TopBySignal(limit)
+	if err != nil {
+		return nil, err
+	}
+	dtos, err := s.buildDTOs(ctx, posts, viewerID)
+	if err != nil {
+		return nil, err
+	}
+	for i, dto := range dtos {
+		out.Posts = append(out.Posts, RankedPostDTO{Rank: i + 1, Post: dto})
+	}
+
+	if topics, err := s.topicRepo.TopByPostCount(limit); err == nil {
+		for i, topic := range topics {
+			out.Topics = append(out.Topics, RankedTopicDTO{
+				Rank:      i + 1,
+				ID:        topic.ID,
+				Name:      topic.Name,
+				PostCount: topic.PostCount,
+			})
+		}
+	}
+
+	if users, err := s.userRepo.TopByFollowerCount(limit); err == nil {
+		ids := make([]uint, len(users))
+		for i, u := range users {
+			ids[i] = u.ID
+		}
+		counts, _ := s.followRepo.FollowerCounts(ids)
+		for i, user := range users {
+			out.Creators = append(out.Creators, RankedCreatorDTO{
+				Rank:          i + 1,
+				ID:            user.ID,
+				Nickname:      user.Nickname,
+				AvatarURL:     user.AvatarURL,
+				Bio:           user.Bio,
+				FollowerCount: counts[user.ID],
+			})
+		}
+	}
+	return out, nil
+}
+
+// orderPostsByIDs 把数据库返回的笔记按 ID 列表顺序还原（榜单顺序）。
+func orderPostsByIDs(posts []model.Post, ids []uint) []model.Post {
+	byID := make(map[uint]model.Post, len(posts))
+	for _, post := range posts {
+		byID[post.ID] = post
+	}
+	ordered := make([]model.Post, 0, len(posts))
+	for _, id := range ids {
+		if post, ok := byID[id]; ok {
+			ordered = append(ordered, post)
+		}
+	}
+	return ordered
 }

@@ -1,6 +1,8 @@
 package router
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -29,12 +31,17 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 	userHandler := handler.NewUserHandler(userRepo, userSvc)
 
 	postRepo := repository.NewPostRepo(db)
-	postSvc := service.NewPostService(postRepo, followRepo, topicRepo, notifSvc, st)
+	rankRepo := repository.NewRankRepo(rdb)
+	rankingSvc := service.NewRankingService(postRepo, topicRepo, rankRepo)
+	// 首次启动用 MySQL 回填榜单，之后每 5 分钟纠偏一次；Redis 故障时自动降级为 SQL。
+	go rankingSvc.Start(context.Background())
+
+	postSvc := service.NewPostService(postRepo, followRepo, topicRepo, userRepo, notifSvc, st, rankingSvc)
 	postHandler := handler.NewPostHandler(postSvc)
 	uploadHandler := handler.NewUploadHandler(st)
 
 	commentRepo := repository.NewCommentRepo(db)
-	commentSvc := service.NewCommentService(commentRepo, postRepo, userRepo, notifSvc)
+	commentSvc := service.NewCommentService(commentRepo, postRepo, userRepo, notifSvc, rankingSvc)
 	commentHandler := handler.NewCommentHandler(commentSvc)
 
 	messageRepo := repository.NewMessageRepo(db)
@@ -54,20 +61,22 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 			auth.POST("/send-code", authHandler.SendCode)
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/refresh", authHandler.Refresh)
+			auth.POST("/logout", authHandler.Logout)
 		}
 
-		api.GET("/posts", middleware.OptionalAuth(jwtMgr), postHandler.List)
-		api.GET("/posts/:id", middleware.OptionalAuth(jwtMgr), postHandler.Detail)
-		api.GET("/search", middleware.OptionalAuth(jwtMgr), postHandler.Search)
-		api.GET("/search/users", middleware.OptionalAuth(jwtMgr), userHandler.Search)
-		api.GET("/posts/:id/comments", middleware.OptionalAuth(jwtMgr), commentHandler.List)
-		api.GET("/users/:id", middleware.OptionalAuth(jwtMgr), userHandler.Get)
-		api.GET("/users/:id/posts", middleware.OptionalAuth(jwtMgr), postHandler.UserPosts)
-		api.GET("/users/:id/following", middleware.OptionalAuth(jwtMgr), userHandler.Following)
-		api.GET("/users/:id/followers", middleware.OptionalAuth(jwtMgr), userHandler.Followers)
+		api.GET("/rankings", middleware.OptionalAuth(jwtMgr, authSvc), postHandler.Rankings)
+		api.GET("/posts", middleware.OptionalAuth(jwtMgr, authSvc), postHandler.List)
+		api.GET("/posts/:id", middleware.OptionalAuth(jwtMgr, authSvc), postHandler.Detail)
+		api.GET("/search", middleware.OptionalAuth(jwtMgr, authSvc), postHandler.Search)
+		api.GET("/search/users", middleware.OptionalAuth(jwtMgr, authSvc), userHandler.Search)
+		api.GET("/posts/:id/comments", middleware.OptionalAuth(jwtMgr, authSvc), commentHandler.List)
+		api.GET("/users/:id", middleware.OptionalAuth(jwtMgr, authSvc), userHandler.Get)
+		api.GET("/users/:id/posts", middleware.OptionalAuth(jwtMgr, authSvc), postHandler.UserPosts)
+		api.GET("/users/:id/following", middleware.OptionalAuth(jwtMgr, authSvc), userHandler.Following)
+		api.GET("/users/:id/followers", middleware.OptionalAuth(jwtMgr, authSvc), userHandler.Followers)
 
 		protected := api.Group("")
-		protected.Use(middleware.Auth(jwtMgr))
+		protected.Use(middleware.Auth(jwtMgr, authSvc))
 		{
 			protected.GET("/users/me", userHandler.Me)
 			protected.GET("/users/me/posts", postHandler.MyPosts)
