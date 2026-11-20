@@ -3,6 +3,7 @@ import Icon from "./Icon";
 import type { IconName } from "./Icon";
 import Avatar from "./Avatar";
 import { useAuth } from "../store/auth";
+import { api } from "../api/client";
 
 interface SidebarProps {
   unread: number;
@@ -25,6 +26,7 @@ export default function Sidebar({ unread, onAbout }: SidebarProps) {
   const entries: NavEntry[] = [
     { to: "/", label: "首页", icon: "home", exact: true },
     { to: "/search", label: "发现", icon: "compass" },
+    { to: "/rankings", label: "热榜", icon: "flame" },
     { to: "/notifications", label: "消息", icon: "bell", badge: unread },
     { to: "/profile", label: "我的", icon: "user" },
   ];
@@ -45,7 +47,7 @@ export default function Sidebar({ unread, onAbout }: SidebarProps) {
       </Link>
 
       <nav className="nav">
-        {entries.slice(0, 2).map((entry) => (
+        {entries.slice(0, 3).map((entry) => (
           <Link key={entry.to} to={entry.to} className={`nav-item ${isActive(entry) ? "active" : ""}`}>
             <Icon name={entry.icon} size={20} />
             {entry.label}
@@ -57,7 +59,7 @@ export default function Sidebar({ unread, onAbout }: SidebarProps) {
           发布笔记
         </button>
 
-        {entries.slice(2).map((entry) => (
+        {entries.slice(3).map((entry) => (
           <Link key={entry.to} to={entry.to} className={`nav-item ${isActive(entry) ? "active" : ""}`}>
             <Icon name={entry.icon} size={20} />
             {entry.label}
@@ -92,6 +94,8 @@ export default function Sidebar({ unread, onAbout }: SidebarProps) {
           <button
             type="button"
             onClick={() => {
+              const refreshToken = localStorage.getItem("refresh_token") || undefined;
+              api.logout(refreshToken).catch(() => undefined);
               logout();
               navigate("/login");
             }}

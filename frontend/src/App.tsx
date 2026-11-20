@@ -13,6 +13,7 @@ import UserProfile from "./pages/UserProfile";
 import EditPost from "./pages/EditPost";
 import Notifications from "./pages/Notifications";
 import Chat from "./pages/Chat";
+import Rankings from "./pages/Rankings";
 
 function ScrollToTop() {
   const location = useLocation();
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/rankings" element={<Rankings />} />
           <Route path="/post/:id" element={<PostDetail />} />
           <Route path="/user/:id" element={<UserProfile />} />
           <Route

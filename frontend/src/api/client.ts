@@ -83,6 +83,9 @@ export const api = {
     request("/auth/send-code", { method: "POST", body: JSON.stringify({ phone }) }),
   login: (phone: string, code: string) =>
     request("/auth/login", { method: "POST", body: JSON.stringify({ phone, code }) }),
+  logout: (refreshToken?: string) =>
+    request("/auth/logout", { method: "POST", body: JSON.stringify({ refresh_token: refreshToken || "" }) }),
+  rankings: (limit = 10) => request("/rankings?limit=" + limit),
   me: () => request("/users/me"),
   feed: (sort = "latest", page = 1) =>
     request("/posts?sort=" + sort + "&page=" + page + "&page_size=20"),

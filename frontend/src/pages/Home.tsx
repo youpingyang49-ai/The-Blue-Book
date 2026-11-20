@@ -87,6 +87,25 @@ export default function Home() {
     return Array.from(set).slice(0, 12);
   }, [items]);
 
+  // 话题 chips 优先用 Redis 话题榜；接口不可用时退回当前 feed 里出现的话题。
+  const [rankTopics, setRankTopics] = useState<string[]>([]);
+  useEffect(() => {
+    let alive = true;
+    api
+      .rankings(12)
+      .then((result: any) => {
+        if (!alive) return;
+        const names = (result?.topics || []).map((topic: any) => topic?.name).filter(Boolean);
+        setRankTopics(names);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const topicChips = rankTopics.length > 0 ? rankTopics : topics;
+
   const needsLogin = sort === "following" && !token;
 
   return (
@@ -94,15 +113,19 @@ export default function Home() {
       <div className="feed-toolbar">
         <FeedTabs value={sort} onChange={setSort} />
         <span className="spacer" />
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate("/rankings")}>
+          <Icon name="flame" size={14} />
+          热榜
+        </button>
         <span className="muted" style={{ fontSize: 12.5 }}>
           {SORT_HINT[sort]}
         </span>
       </div>
 
-      {topics.length > 0 && !needsLogin ? (
+      {topicChips.length > 0 && !needsLogin ? (
         <div className="topic-row">
           <div className="chip-row">
-            {topics.map((topic) => (
+            {topicChips.map((topic) => (
               <button
                 key={topic}
                 type="button"
