@@ -59,6 +59,7 @@ func New(db *gorm.DB, rdb *redis.Client, jwtMgr *jwt.Manager, st storage.Storage
 		api.GET("/posts", middleware.OptionalAuth(jwtMgr), postHandler.List)
 		api.GET("/posts/:id", middleware.OptionalAuth(jwtMgr), postHandler.Detail)
 		api.GET("/search", middleware.OptionalAuth(jwtMgr), postHandler.Search)
+		api.GET("/search/users", middleware.OptionalAuth(jwtMgr), userHandler.Search)
 		api.GET("/posts/:id/comments", middleware.OptionalAuth(jwtMgr), commentHandler.List)
 		api.GET("/users/:id", middleware.OptionalAuth(jwtMgr), userHandler.Get)
 		api.GET("/users/:id/posts", middleware.OptionalAuth(jwtMgr), postHandler.UserPosts)

@@ -78,6 +78,48 @@ func (s *UserService) Followers(ctx context.Context, userID, viewerID uint, page
 	return dtos, total, err
 }
 
+// UserSearchDTO 用户搜索结果项。
+type UserSearchDTO struct {
+	ID            uint   `json:"id"`
+	Nickname      string `json:"nickname"`
+	AvatarURL     string `json:"avatar_url"`
+	Bio           string `json:"bio"`
+	FollowerCount int64  `json:"follower_count"`
+	IsFollowing   bool   `json:"is_following"`
+}
+
+// SearchUsers 按昵称 / 简介搜索用户。
+func (s *UserService) SearchUsers(ctx context.Context, q string, page, pageSize int, viewerID uint) ([]UserSearchDTO, int64, error) {
+	users, total, err := s.userRepo.Search(q, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	ids := make([]uint, len(users))
+	for i, u := range users {
+		ids[i] = u.ID
+	}
+	followed, err := s.followRepo.FollowedIDs(viewerID, ids)
+	if err != nil {
+		followed = map[uint]bool{}
+	}
+	counts, err := s.followRepo.FollowerCounts(ids)
+	if err != nil {
+		counts = map[uint]int64{}
+	}
+	dtos := make([]UserSearchDTO, 0, len(users))
+	for _, u := range users {
+		dtos = append(dtos, UserSearchDTO{
+			ID:            u.ID,
+			Nickname:      u.Nickname,
+			AvatarURL:     u.AvatarURL,
+			Bio:           u.Bio,
+			FollowerCount: counts[u.ID],
+			IsFollowing:   followed[u.ID],
+		})
+	}
+	return dtos, total, nil
+}
+
 func (s *UserService) Profile(ctx context.Context, userID, viewerID uint) (*UserProfileDTO, error) {
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {

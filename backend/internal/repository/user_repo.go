@@ -55,3 +55,20 @@ func (r *UserRepo) FindByNickname(nickname string) (*model.User, error) {
 	}
 	return &user, nil
 }
+
+// Search 按昵称 / 简介模糊搜索用户。
+func (r *UserRepo) Search(q string, page, pageSize int) ([]model.User, int64, error) {
+	like := "%" + q + "%"
+	var total int64
+	if err := r.db.Model(&model.User{}).
+		Where("nickname LIKE ? OR bio LIKE ?", like, like).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var users []model.User
+	err := r.db.Where("nickname LIKE ? OR bio LIKE ?", like, like).
+		Order("id ASC").
+		Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&users).Error
+	return users, total, err
+}

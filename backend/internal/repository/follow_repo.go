@@ -112,3 +112,28 @@ func (r *FollowRepo) FollowedIDs(viewerID uint, userIDs []uint) (map[uint]bool, 
 	}
 	return set, nil
 }
+
+// FollowerCounts 批量统计粉丝数，供用户搜索列表展示。
+func (r *FollowRepo) FollowerCounts(userIDs []uint) (map[uint]int64, error) {
+	out := make(map[uint]int64, len(userIDs))
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+	type row struct {
+		FolloweeID uint
+		Total      int64
+	}
+	var rows []row
+	err := r.db.Model(&model.Follow{}).
+		Select("followee_id, COUNT(*) AS total").
+		Where("followee_id IN ?", userIDs).
+		Group("followee_id").
+		Scan(&rows).Error
+	if err != nil {
+		return out, err
+	}
+	for _, rw := range rows {
+		out[rw.FolloweeID] = rw.Total
+	}
+	return out, nil
+}

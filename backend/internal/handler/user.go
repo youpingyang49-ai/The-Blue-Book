@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -54,6 +55,29 @@ func (h *UserHandler) Get(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": profile})
+}
+
+// Search 用户搜索（昵称 / 简介）
+func (h *UserHandler) Search(c *gin.Context) {
+	q := strings.TrimSpace(c.Query("q"))
+	if q == "" {
+		c.JSON(http.StatusOK, gin.H{"items": []service.UserSearchDTO{}, "total": 0})
+		return
+	}
+	page := 1
+	if v, err := strconv.Atoi(c.DefaultQuery("page", "1")); err == nil && v > 0 {
+		page = v
+	}
+	pageSize := 20
+	if v, err := strconv.Atoi(c.DefaultQuery("page_size", "20")); err == nil && v > 0 && v <= 50 {
+		pageSize = v
+	}
+	items, total, err := h.userSvc.SearchUsers(c.Request.Context(), q, page, pageSize, c.GetUint("userID"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "搜索失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "total": total})
 }
 
 // Following 关注列表
