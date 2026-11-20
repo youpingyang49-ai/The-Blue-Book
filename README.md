@@ -98,7 +98,7 @@
 
 ### 消息通知
 
-- 消息中心：点赞、收藏、评论、关注、@提及分类查看
+- 消息中心：点赞、收藏、评论、关注、@提及分类查看，分类未读角标，查看后自动清除
 - 私信：会话列表、未读角标、气泡聊天、清空记录
 - RabbitMQ 异步通知，不可用时自动降级为同步写入
 
@@ -321,8 +321,8 @@ The-Blue-Book/
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/notifications?type=` | 通知列表（like / comment / follow / mention） |
-| GET | `/notifications/unread-count` | 未读数量 |
-| POST | `/notifications/read` | 全部标为已读 |
+| GET | `/notifications/unread-count` | 未读数（总数 / 分类明细 / 私信） |
+| POST | `/notifications/read` | 标记已读，可传 `types` 按分类处理 |
 | GET | `/conversations` | 私信会话列表 |
 | GET / POST | `/messages/:id` | 聊天记录 / 发送私信 |
 | POST | `/messages/:id/unread` | 标记会话未读 |
