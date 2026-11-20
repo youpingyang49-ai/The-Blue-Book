@@ -86,6 +86,7 @@
 - 图文笔记发布：多图上传、话题标签、图片预览与移除；标题、正文、话题均可选
 - 首页四类 Feed：推荐 / 最新 / 热门 / 关注
 - 推荐算法：热度加权 + 时间衰减 + 话题个性化 + 冷启动兜底
+- 排行榜：Redis ZSet 维护笔记热度榜 / 话题榜 / 创作者榜，热门 / 推荐流与热榜页直接读排名，互动后增量更新、每 5 分钟纠偏（[设计说明](docs/ranking.md)）
 - 瀑布流布局：2 / 3 / 4 / 5 列随窗口自适应
 - 搜索：笔记（标题 / 正文 / 话题）与用户（昵称 / 简介）双分页，支持分页加载
 
@@ -106,6 +107,7 @@
 
 - 手机号 + 短信验证码登录，未注册自动创建账号
 - JWT 双 Token，Access 过期后自动静默续期（令牌轮换）
+- Refresh Token 单次使用：jti 白名单 + 令牌家族，旧 refresh 立即失效；检测到重放时吊销整条家族链并同步让 access token 失效（[设计说明](docs/auth-refresh-rotation.md)）
 - 未登录访问受限页面跳转登录，登录后回跳原目标
 
 ### 体验与工程
@@ -151,6 +153,8 @@
 
 - 通知默认通过 RabbitMQ 异步投递，MQ 不可用时自动降级为同步写库。
 - 图片默认存本地磁盘（`UPLOAD_DIR`），配置 `MINIO_ENDPOINT` 后切换 MinIO。
+- 推荐 / 热门 / 热榜读取 Redis ZSet 排名；Redis 不可用时自动回退 MySQL 排序，榜单可由数据库重建。
+- Refresh Token 的家族状态存在 Redis，轮换与重放检测由 Lua 脚本保证原子性。
 
 ## 🚀 快速开始
 
@@ -219,12 +223,16 @@ npm run dev
 | `REDIS_ADDR` | `127.0.0.1:6379` | Redis 地址 |
 | `RABBITMQ_URL` | `amqp://guest:guest@127.0.0.1:5672/` | RabbitMQ 地址，留空则关闭 MQ |
 | `JWT_SECRET` | `the-blue-book-dev-secret-change-me` | JWT 签名密钥（生产必须修改） |
+| `ACCESS_TOKEN_TTL` | `15m` | access token 有效期 |
+| `REFRESH_TOKEN_TTL` | `168h` | refresh token 有效期（也是令牌家族状态 TTL） |
 | `APP_ENV` | `development` | 环境标识，development 下返回验证码 |
 | `UPLOAD_DIR` | `./uploads` | 本地图片存储目录 |
 | `PUBLIC_BASE_URL` | `http://127.0.0.1:8080` | 图片访问前缀 |
 | `MINIO_ENDPOINT` | *(空)* | 留空使用本地磁盘，设置后切换 MinIO |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | `minioadmin` | MinIO 凭证 |
 | `MINIO_BUCKET` | `bluebook` | MinIO Bucket |
+
+> **升级提示**：刷新令牌已改为单次使用（jti + 令牌家族）。升级前签发的 refresh token 会被拒绝，用户需要重新登录一次；已有的 access token 仍会在 `ACCESS_TOKEN_TTL`（默认 15 分钟）内自然过期。
 
 ## 📁 项目结构
 
@@ -240,7 +248,7 @@ The-Blue-Book/
 │       ├── handler/                # HTTP 处理器
 │       ├── middleware/             # JWT 鉴权、CORS
 │       ├── router/                 # 路由注册
-│       └── pkg/                    # jwt / storage / mq 公共库
+│       └── pkg/                    # jwt / session / rank / storage / mq 公共库
 ├── frontend/                       # React 前端
 │   └── src/
 │       ├── api/                    # 接口封装
@@ -254,8 +262,8 @@ The-Blue-Book/
 │       │   ├── FollowListModal.tsx # 关注 / 粉丝列表
 │       │   └── States.tsx          # 加载 / 空 / 错误态
 │       ├── styles/                 # 设计系统（tokens / layout / components / pages）
-│       └── pages/                  # 页面：首页、发现、发布、详情、消息、私信、个人中心
-├── docs/screenshots/               # README 预览图
+│       └── pages/                  # 页面：首页、发现、热榜、发布、详情、消息、私信、个人中心
+├── docs/                           # 预览图与设计说明（排行榜 / 令牌轮换）
 ├── docker-compose.yml              # 本地依赖（MySQL / Redis / RabbitMQ / MinIO）
 └── README.md
 ```
@@ -271,7 +279,8 @@ The-Blue-Book/
 | --- | --- | --- |
 | POST | `/auth/send-code` | 发送短信验证码（开发环境返回 `debug_code`） |
 | POST | `/auth/login` | 验证码登录，返回 `access_token` / `refresh_token` |
-| POST | `/auth/refresh` | 用 `refresh_token` 换取新的 access / refresh token |
+| POST | `/auth/refresh` | 用 `refresh_token` 换取新的 access / refresh token（旧 token 立即失效） |
+| POST | `/auth/logout` | 吊销 refresh token 所属的令牌家族 |
 
 </details>
 
@@ -280,13 +289,22 @@ The-Blue-Book/
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/posts?sort=recommend\|latest\|hot\|following` | 首页 Feed |
+| GET | `/posts?sort=recommend\|latest\|hot\|following` | 首页 Feed（推荐 / 热门读 Redis 榜单） |
 | POST | `/posts` | 发布笔记（需登录） |
 | GET | `/posts/:id` | 笔记详情 |
 | PUT | `/posts/:id` | 编辑笔记（仅作者） |
 | DELETE | `/posts/:id` | 删除笔记（仅作者） |
 | GET | `/search?q=` | 搜索标题 / 正文 / 话题 |
 | GET | `/search/users?q=` | 搜索用户（昵称 / 简介） |
+
+</details>
+
+<details>
+<summary><b>排行榜</b></summary>
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/rankings?limit=10` | 笔记 / 话题 / 创作者三榜，热榜页数据源（`source=redis`，Redis 不可用时回退 `mysql`） |
 
 </details>
 
@@ -354,6 +372,9 @@ npm run lint
 cd backend
 go build ./...
 go vet ./...
+
+# 后端单元测试（令牌家族测试需要本地 Redis，连不上会自动跳过）
+go test ./...
 ```
 
 前端构建产物输出到 `frontend/dist/`，可直接配合 Nginx 部署。
@@ -377,6 +398,8 @@ go vet ./...
 - [x] 关注 / 关注流 / 粉丝与关注列表
 - [x] 消息通知 + @提及 + 私信
 - [x] 推荐算法（热度 + 时间衰减 + 话题个性化）
+- [x] Redis ZSet 排行榜（笔记 / 话题 / 创作者）与热榜页
+- [x] Refresh Token 单次使用与重放检测（令牌家族）
 - [x] RabbitMQ 通知异步化（不可用时自动降级）
 - [x] 全站 UI：固定侧栏 + 顶部搜索 + 瀑布流 + 设计系统
 - [x] 响应式适配（桌面 / 平板 / 移动端）
