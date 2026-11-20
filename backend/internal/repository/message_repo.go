@@ -48,6 +48,15 @@ func (r *MessageRepo) MarkRead(userID, otherID uint) error {
 		Update("is_read", true).Error
 }
 
+// UnreadCount 统计收到的未读私信总数。
+func (r *MessageRepo) UnreadCount(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.Message{}).
+		Where("to_user_id = ? AND is_read = ?", userID, false).
+		Count(&count).Error
+	return count, err
+}
+
 func (r *MessageRepo) MarkUnread(userID, otherID uint) error {
 	return r.db.Model(&model.Message{}).
 		Where("from_user_id = ? AND to_user_id = ? AND is_read = ?", otherID, userID, true).

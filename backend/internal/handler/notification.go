@@ -38,19 +38,24 @@ func (h *NotificationHandler) List(c *gin.Context) {
 
 func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 	userID := c.GetUint("userID")
-	count, err := h.notif.UnreadCount(c.Request.Context(), userID)
+	stats, err := h.notif.Stats(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"count": count})
+	c.JSON(http.StatusOK, stats)
 }
 
 func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
 	userID := c.GetUint("userID")
-	if err := h.notif.MarkAllRead(c.Request.Context(), userID); err != nil {
+	var req struct {
+		Types []string `json:"types"`
+	}
+	// 允许空 body：不传 types 表示全部标记
+	_ = c.ShouldBindJSON(&req)
+	if err := h.notif.MarkRead(c.Request.Context(), userID, req.Types); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "操作失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "已全部标记为已读"})
+	c.JSON(http.StatusOK, gin.H{"message": "已标记为已读"})
 }

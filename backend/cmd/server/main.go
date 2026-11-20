@@ -57,7 +57,8 @@ func main() {
 	}
 
 	notifRepo := repository.NewNotificationRepo(db)
-	notifSvc := service.NewNotificationService(notifRepo, mqClient)
+	messageRepo := repository.NewMessageRepo(db)
+	notifSvc := service.NewNotificationService(notifRepo, messageRepo, mqClient)
 
 	r := router.New(db, rdb, jwtMgr, st, notifSvc, cfg.AppEnv)
 	r.Static("/uploads", cfg.UploadDir)

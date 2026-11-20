@@ -21,12 +21,21 @@ type notificationPayload struct {
 }
 
 type NotificationService struct {
-	notifRepo *repository.NotificationRepo
-	mq        *mq.Client
+	notifRepo   *repository.NotificationRepo
+	messageRepo *repository.MessageRepo
+	mq          *mq.Client
 }
 
-func NewNotificationService(notifRepo *repository.NotificationRepo, mqClient *mq.Client) *NotificationService {
-	return &NotificationService{notifRepo: notifRepo, mq: mqClient}
+func NewNotificationService(notifRepo *repository.NotificationRepo, messageRepo *repository.MessageRepo, mqClient *mq.Client) *NotificationService {
+	return &NotificationService{notifRepo: notifRepo, messageRepo: messageRepo, mq: mqClient}
+}
+
+// UnreadStats 未读统计：按通知类型拆分，并包含私信未读。
+type UnreadStats struct {
+	Count  int64            `json:"count"`
+	ByType map[string]int64 `json:"by_type"`
+	DM     int64            `json:"dm"`
+	Total  int64            `json:"total"`
 }
 
 type NotificationDTO struct {
@@ -93,6 +102,31 @@ func (s *NotificationService) List(ctx context.Context, userID uint, typ string,
 
 func (s *NotificationService) UnreadCount(ctx context.Context, userID uint) (int64, error) {
 	return s.notifRepo.UnreadCount(userID)
+}
+
+// Stats 返回按类型拆分的未读数与私信未读数。
+func (s *NotificationService) Stats(ctx context.Context, userID uint) (*UnreadStats, error) {
+	byType, err := s.notifRepo.UnreadCountByType(userID)
+	if err != nil {
+		return nil, err
+	}
+	var count int64
+	for _, v := range byType {
+		count += v
+	}
+	var dm int64
+	if s.messageRepo != nil {
+		dm, err = s.messageRepo.UnreadCount(userID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &UnreadStats{Count: count, ByType: byType, DM: dm, Total: count + dm}, nil
+}
+
+// MarkRead 按类型标记已读；types 为空时全部标记。
+func (s *NotificationService) MarkRead(ctx context.Context, userID uint, types []string) error {
+	return s.notifRepo.MarkReadByTypes(userID, types)
 }
 
 func (s *NotificationService) MarkAllRead(ctx context.Context, userID uint) error {
